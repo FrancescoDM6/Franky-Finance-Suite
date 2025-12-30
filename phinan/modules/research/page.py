@@ -1,0 +1,160 @@
+"""Research page - Company research for options trading."""
+
+import reflex as rx
+
+from ...components.layout import main_layout
+from ...state.app import AppState
+from ...state.user_context import UserContextState
+from .state import ResearchState
+from .components import quality_card, analyst_card, range_card, news_card
+
+
+def research_header() -> rx.Component:
+    """Research page header with input and controls."""
+    return rx.hstack(
+        rx.input(
+            placeholder="Enter ticker (e.g., AAPL)",
+            value=ResearchState.ticker_input,
+            on_change=ResearchState.set_ticker_input,
+            size="2",
+            width="200px",
+        ),
+        rx.select(
+            ["1mo", "3mo", "6mo", "1y"],
+            value=ResearchState.range_period,
+            on_change=ResearchState.set_range_period,
+            size="2",
+        ),
+        rx.button(
+            rx.icon("search", size=16),
+            "Research",
+            on_click=ResearchState.research_ticker,
+            loading=ResearchState.is_loading,
+            color_scheme="blue",
+            size="2",
+        ),
+        rx.button(
+            "Clear",
+            on_click=ResearchState.clear_research,
+            variant="outline",
+            size="2",
+        ),
+        spacing="3",
+        wrap="wrap",
+    )
+
+
+def ticker_header() -> rx.Component:
+    """Ticker information header."""
+    return rx.hstack(
+        rx.vstack(
+            rx.hstack(
+                rx.heading(ResearchState.selected_ticker, size="6"),
+                rx.cond(
+                    ResearchState.current_price,
+                    rx.badge(
+                        rx.text("$", ResearchState.current_price),
+                        color_scheme="green",
+                        size="2",
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="3",
+                align="center",
+            ),
+            rx.text(
+                ResearchState.ticker_info.get("name", ""),
+                size="2",
+                color_scheme="gray",
+            ),
+            align="start",
+            spacing="1",
+        ),
+        rx.spacer(),
+        rx.vstack(
+            rx.text(
+                ResearchState.ticker_info.get("sector", ""),
+                size="1",
+                color_scheme="gray",
+            ),
+            rx.text(
+                ResearchState.ticker_info.get("industry", ""),
+                size="1",
+                color_scheme="gray",
+            ),
+            align="end",
+            spacing="0",
+        ),
+        width="100%",
+    )
+
+
+def research_results() -> rx.Component:
+    """Research results display."""
+    return rx.cond(
+        ResearchState.has_results,
+        rx.vstack(
+            ticker_header(),
+            rx.divider(),
+            # Main grid
+            rx.grid(
+                quality_card(),
+                analyst_card(),
+                columns="2",
+                spacing="4",
+                width="100%",
+            ),
+            range_card(),
+            news_card(),
+            spacing="4",
+            width="100%",
+        ),
+        rx.cond(
+            ResearchState.error_message != "",
+            rx.callout(
+                ResearchState.error_message,
+                icon="circle-alert",
+                color_scheme="red",
+            ),
+            rx.center(
+                rx.vstack(
+                    rx.icon("search", size=48, color="var(--gray-8)"),
+                    rx.text("Enter a ticker symbol to begin research", color_scheme="gray"),
+                    rx.text(
+                        "Try AAPL, NVDA, ORCL, or any stock ticker",
+                        size="1",
+                        color_scheme="gray",
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+                padding="8",
+            ),
+        ),
+    )
+
+
+def research_content() -> rx.Component:
+    """Research page content."""
+    return rx.vstack(
+        rx.hstack(
+            rx.heading("Research", size="6"),
+            rx.spacer(),
+            rx.badge(
+                rx.text("Profile: ", UserContextState.profile_display_name),
+                variant="soft",
+            ),
+            width="100%",
+        ),
+        research_header(),
+        rx.divider(),
+        research_results(),
+        spacing="4",
+        width="100%",
+    )
+
+
+@rx.page(route="/research", title="Research | Phinan Finance Suite", on_load=AppState.set_page("research"))
+def research_page() -> rx.Component:
+    """Research page."""
+    return main_layout(research_content())

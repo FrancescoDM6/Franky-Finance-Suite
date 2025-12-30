@@ -1,0 +1,130 @@
+/* Phinan Finance Suite - Global Styles */
+
+/* Reset and base */
+* {
+    box-sizing: border-box;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--gray-a3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gray-a6);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-a8);
+}
+
+/* Card hover effects */
+.rt-Card {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.rt-Card:hover {
+    box-shadow: 0 4px 12px var(--gray-a4);
+}
+
+/* Smooth transitions */
+.rt-Box,
+.rt-Flex,
+.rt-Grid {
+    transition: margin 0.2s ease, padding 0.2s ease;
+}
+
+/* Assistant panel animation */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading states */
+.loading-pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Progress bar enhancements */
+.rt-ProgressRoot {
+    height: 8px;
+    border-radius: 4px;
+}
+
+/* Badge styles */
+.rt-Badge {
+    text-transform: capitalize;
+}
+
+/* Input focus styles */
+.rt-TextFieldInput:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-a6);
+}
+
+/* Button transitions */
+.rt-Button {
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.rt-Button:active {
+    transform: scale(0.98);
+}
+
+/* Markdown in chat */
+.chat-message p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.chat-message strong {
+    font-weight: 600;
+}
+
+/* Quality indicators */
+.quality-pass {
+    color: var(--green-11);
+}
+
+.quality-review {
+    color: var(--yellow-11);
+}
+
+.quality-fail {
+    color: var(--red-11);
+}
+
+/* Range position colors */
+.range-high {
+    color: var(--red-11);
+}
+
+.range-mid {
+    color: var(--blue-11);
+}
+
+.range-low {
+    color: var(--green-11);
+}

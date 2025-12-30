@@ -1,0 +1,266 @@
+"""Market data service abstracting yfinance (swappable to Polygon).
+
+Design pattern: Data Provider Adapter
+yfinance breaks often - interface is stable, implementation swappable.
+"""
+
+from dataclasses import dataclass
+from datetime import date, datetime
+from typing import Any, Optional
+
+import pandas as pd
+
+from ..config.settings import settings
+
+
+@dataclass
+class TickerInfo:
+    """Standardized ticker information."""
+
+    symbol: str
+    name: str
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    market_cap: Optional[float] = None
+    pe_ratio: Optional[float] = None
+    dividend_yield: Optional[float] = None
+    profit_margin: Optional[float] = None
+    debt_to_equity: Optional[float] = None
+    analyst_rating: Optional[str] = None
+    target_price: Optional[float] = None
+    num_analysts: Optional[int] = None
+    current_price: Optional[float] = None
+
+
+@dataclass
+class PriceRange:
+    """Price range analysis for a period."""
+
+    period: str
+    high: float
+    low: float
+    current: float
+    percent_of_range: float
+
+
+@dataclass
+class NewsItem:
+    """News article summary."""
+
+    title: str
+    publisher: str
+    link: str
+    published: datetime
+    summary: Optional[str] = None
+
+
+class MarketDataService:
+    """Market data service using yfinance.
+
+    All data fetching goes through this service for:
+    - Consistent error handling
+    - Caching (via database cache table)
+    - Easy swap to different provider
+    """
+
+    def __init__(self):
+        """Initialize market data service."""
+        self._provider = settings.market_data.provider
+        self._cache_ttl = settings.market_data.cache_ttl_minutes
+        self._yf = None
+
+    def _get_yf(self):
+        """Lazy-load yfinance."""
+        if self._yf is None:
+            try:
+                import yfinance as yf
+
+                self._yf = yf
+            except ImportError:
+                raise ImportError("yfinance not installed. Run: pip install yfinance")
+        return self._yf
+
+    def health_check(self) -> bool:
+        """Check if market data service is available."""
+        try:
+            self._get_yf()
+            return True
+        except Exception:
+            return False
+
+    def get_ticker_info(self, symbol: str) -> Optional[TickerInfo]:
+        """Get comprehensive ticker information.
+
+        Args:
+            symbol: Stock ticker symbol (e.g., "AAPL")
+
+        Returns:
+            TickerInfo dataclass or None if not found
+        """
+        yf = self._get_yf()
+
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+
+            # Handle case where ticker doesn't exist
+            if not info or info.get("regularMarketPrice") is None:
+                return None
+
+            return TickerInfo(
+                symbol=symbol.upper(),
+                name=info.get("longName") or info.get("shortName") or symbol,
+                sector=info.get("sector"),
+                industry=info.get("industry"),
+                market_cap=info.get("marketCap"),
+                pe_ratio=info.get("trailingPE"),
+                dividend_yield=info.get("dividendYield"),
+                profit_margin=info.get("profitMargins"),
+                debt_to_equity=info.get("debtToEquity"),
+                analyst_rating=info.get("recommendationKey"),
+                target_price=info.get("targetMeanPrice"),
+                num_analysts=info.get("numberOfAnalystOpinions"),
+                current_price=info.get("regularMarketPrice"),
+            )
+        except Exception as e:
+            print(f"Error fetching ticker info for {symbol}: {e}")
+            return None
+
+    def get_price_history(
+        self,
+        symbol: str,
+        period: str = "6mo",
+        interval: str = "1d",
+    ) -> pd.DataFrame:
+        """Get historical price data.
+
+        Args:
+            symbol: Stock ticker symbol
+            period: Time period (1mo, 3mo, 6mo, 1y, 2y, 5y, max)
+            interval: Data interval (1d, 1wk, 1mo)
+
+        Returns:
+            DataFrame with OHLCV data
+        """
+        yf = self._get_yf()
+
+        try:
+            ticker = yf.Ticker(symbol)
+            history = ticker.history(period=period, interval=interval)
+            return history
+        except Exception as e:
+            print(f"Error fetching price history for {symbol}: {e}")
+            return pd.DataFrame()
+
+    def get_price_range(self, symbol: str, period: str = "3mo") -> Optional[PriceRange]:
+        """Calculate price range for period.
+
+        Args:
+            symbol: Stock ticker symbol
+            period: Time period (1mo, 3mo, 6mo, 1y)
+
+        Returns:
+            PriceRange dataclass
+        """
+        history = self.get_price_history(symbol, period=period)
+
+        if history.empty:
+            return None
+
+        high = history["High"].max()
+        low = history["Low"].min()
+        current = history["Close"].iloc[-1]
+
+        # Calculate position in range (0 = at low, 1 = at high)
+        range_size = high - low
+        if range_size > 0:
+            percent = (current - low) / range_size
+        else:
+            percent = 0.5
+
+        return PriceRange(
+            period=period,
+            high=float(high),
+            low=float(low),
+            current=float(current),
+            percent_of_range=float(percent),
+        )
+
+    def get_options_expirations(self, symbol: str) -> list[str]:
+        """Get available options expiration dates.
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            List of expiration date strings
+        """
+        yf = self._get_yf()
+
+        try:
+            ticker = yf.Ticker(symbol)
+            return list(ticker.options)
+        except Exception:
+            return []
+
+    def get_options_chain(self, symbol: str, expiration: Optional[str] = None) -> dict[str, pd.DataFrame]:
+        """Get options chain data.
+
+        Args:
+            symbol: Stock ticker symbol
+            expiration: Expiration date string (defaults to nearest)
+
+        Returns:
+            Dict with "calls" and "puts" DataFrames
+        """
+        yf = self._get_yf()
+
+        try:
+            ticker = yf.Ticker(symbol)
+
+            if expiration is None:
+                expirations = ticker.options
+                if not expirations:
+                    return {"calls": pd.DataFrame(), "puts": pd.DataFrame()}
+                expiration = expirations[0]
+
+            chain = ticker.option_chain(expiration)
+            return {
+                "calls": chain.calls,
+                "puts": chain.puts,
+            }
+        except Exception as e:
+            print(f"Error fetching options chain for {symbol}: {e}")
+            return {"calls": pd.DataFrame(), "puts": pd.DataFrame()}
+
+    def get_news(self, symbol: str, max_items: int = 10) -> list[NewsItem]:
+        """Get recent news for a ticker.
+
+        Args:
+            symbol: Stock ticker symbol
+            max_items: Maximum news items to return
+
+        Returns:
+            List of NewsItem dataclasses
+        """
+        yf = self._get_yf()
+
+        try:
+            ticker = yf.Ticker(symbol)
+            news = ticker.news or []
+
+            items = []
+            for article in news[:max_items]:
+                items.append(
+                    NewsItem(
+                        title=article.get("title", ""),
+                        publisher=article.get("publisher", ""),
+                        link=article.get("link", ""),
+                        published=datetime.fromtimestamp(article.get("providerPublishTime", 0)),
+                        summary=article.get("summary"),
+                    )
+                )
+            return items
+        except Exception as e:
+            print(f"Error fetching news for {symbol}: {e}")
+            return []
