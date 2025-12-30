@@ -49,7 +49,7 @@ def main_layout(*children) -> rx.Component:
                 z_index="40",
                 box_shadow="var(--shadow-4)",
             ),
-            content="Chat with Phinan",
+            content="Chat with Phin",
         ),
 
         # Assistant panel (Floating Overlay)
