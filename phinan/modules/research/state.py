@@ -7,6 +7,13 @@ import reflex as rx
 from typing import Any, Optional
 
 
+class NewsItem(rx.Base):
+    """News item model for frontend. Uses rx.Base for proper foreach access."""
+    title: str = ""
+    publisher: str = ""
+    published: str = ""
+
+
 class ResearchState(rx.State):
     """State for the Research module.
 
@@ -16,6 +23,8 @@ class ResearchState(rx.State):
     - Range analysis
     - News aggregation
     """
+
+
 
     # Input
     ticker_input: str = ""
@@ -31,7 +40,13 @@ class ResearchState(rx.State):
     quality_check: dict[str, Any] = {}
     analyst_data: dict[str, Any] = {}
     price_range: dict[str, Any] = {}
-    recent_news: list[dict[str, Any]] = []
+
+    recent_news: list[NewsItem] = []
+    
+    # New: Tab and Chart state
+    selected_tab: str = "overview"
+    chart_period: str = "3mo"
+    price_history: list[dict[str, Any]] = []  # [{date, open, high, low, close, volume}, ...]
 
     @rx.var
     def has_results(self) -> bool:
@@ -74,6 +89,21 @@ class ResearchState(rx.State):
     def quality_flags(self) -> list[str]:
         """Quality warning flags."""
         return self.quality_check.get("flags", [])
+
+    @rx.var
+    def has_chart_data(self) -> bool:
+        """Whether we have chart data."""
+        return len(self.price_history) > 0
+
+    def set_selected_tab(self, tab: str):
+        """Set the selected tab."""
+        self.selected_tab = tab
+
+    async def set_chart_period(self, period: str):
+        """Set chart period and refresh chart data."""
+        self.chart_period = period
+        if self.selected_ticker:
+            await self._fetch_price_history()
 
     def set_ticker_input(self, value: str):
         """Update ticker input."""
@@ -141,21 +171,63 @@ class ResearchState(rx.State):
             # Fetch news
             news = services.market_data.get_news(self.selected_ticker)
             self.recent_news = [
-                {
-                    "title": item.title,
-                    "publisher": item.publisher,
-                    "published": item.published.isoformat(),
-                }
+                NewsItem(
+                    title=item.title,
+                    publisher=item.publisher,
+                    published=item.published.isoformat(),
+                )
                 for item in news[:5]
             ]
+            # DEBUG: Print news items
+            print(f"DEBUG: Created {len(self.recent_news)} news items")
+            for ni in self.recent_news:
+                print(f"  - Title: '{ni.title}' | Publisher: '{ni.publisher}'")
 
             # Compute quality check
             self._compute_quality_check()
+            
+            # Fetch price history for charts
+            await self._fetch_price_history()
 
         except Exception as e:
             self.error_message = f"Error: {str(e)}"
         finally:
             self.is_loading = False
+
+    async def _fetch_price_history(self):
+        """Fetch price history for charts."""
+        if not self.selected_ticker:
+            return
+        
+        try:
+            from ...services import services
+            
+            df = services.market_data.get_price_history(
+                self.selected_ticker, 
+                period=self.chart_period,
+                interval="1d"
+            )
+            
+            if df.empty:
+                self.price_history = []
+                return
+            
+            # Convert DataFrame to list of dicts for Reflex
+            history_data = []
+            for idx, row in df.iterrows():
+                history_data.append({
+                    "date": idx.strftime("%Y-%m-%d") if hasattr(idx, 'strftime') else str(idx),
+                    "open": round(float(row["Open"]), 2),
+                    "high": round(float(row["High"]), 2),
+                    "low": round(float(row["Low"]), 2),
+                    "close": round(float(row["Close"]), 2),
+                    "volume": int(row["Volume"]) if "Volume" in row else 0,
+                })
+            
+            self.price_history = history_data
+        except Exception as e:
+            print(f"Error fetching price history: {e}")
+            self.price_history = []
 
     def _compute_quality_check(self):
         """Compute quality assessment from ticker info."""
@@ -202,4 +274,6 @@ class ResearchState(rx.State):
         self.analyst_data = {}
         self.price_range = {}
         self.recent_news = []
+        self.price_history = []
+        self.selected_tab = "overview"
         self.error_message = ""

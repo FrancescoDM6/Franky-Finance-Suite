@@ -57,23 +57,23 @@ class DatabaseManager:
         """Get a database connection as context manager.
 
         Args:
-            read_only: If True, uses thread-local read connection.
-                      If False, uses the shared writer connection with lock.
+            read_only: Deprecated, kept for interface compatibility. 
+                      All connections are now standard shared connections to avoid config conflicts.
 
         Yields:
             DuckDB connection
         """
-        if read_only:
-            # Thread-local read connection
-            if not hasattr(self._local, "read_conn") or self._local.read_conn is None:
-                self._local.read_conn = duckdb.connect(str(self._db_path), read_only=True)
-            yield self._local.read_conn
-        else:
-            # Writer connection with lock
-            with self._writer_lock:
-                if self._writer_conn is None:
-                    self._writer_conn = duckdb.connect(str(self._db_path))
-                yield self._writer_conn
+        # Always use writer lock for connection acquisition to ensure safe sharing
+        # In a real heavy-load scenario, we might want a connection pool
+        # For now, sharing the single writer connection avoids "different config" errors
+        with self._writer_lock:
+            if self._writer_conn is None:
+                self._writer_conn = duckdb.connect(str(self._db_path))
+            
+            # Create a cursor/duplicate for this transaction if possible, 
+            # or yield the connection itself (DuckDB python connections are generally thread-safe for simple queries)
+            # Better pattern: yield the shared connection, but rely on DuckDB's internal locking
+            yield self._writer_conn
 
     def execute(self, query: str, params: tuple = ()) -> Any:
         """Execute a write query."""

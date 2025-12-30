@@ -4,22 +4,6 @@ import reflex as rx
 from ..state import ResearchState
 
 
-def news_item(item: dict) -> rx.Component:
-    """Single news item."""
-    return rx.hstack(
-        rx.icon("newspaper", size=14, color="var(--gray-9)"),
-        rx.vstack(
-            rx.text(item.get("title", ""), size="2", weight="medium"),
-            rx.text(item.get("publisher", ""), size="1", color_scheme="gray"),
-            spacing="0",
-            align="start",
-        ),
-        spacing="2",
-        width="100%",
-        padding_y="2",
-    )
-
-
 def news_card() -> rx.Component:
     """Recent news card."""
     return rx.card(
@@ -37,7 +21,21 @@ def news_card() -> rx.Component:
             rx.cond(
                 ResearchState.recent_news.length() > 0,
                 rx.vstack(
-                    rx.foreach(ResearchState.recent_news, news_item),
+                    rx.foreach(
+                        ResearchState.recent_news,
+                        lambda item: rx.hstack(
+                            rx.icon("newspaper", size=14, color="var(--gray-9)"),
+                            rx.vstack(
+                                rx.text(item.title, size="2", weight="medium", as_="span"),
+                                rx.text(item.publisher, size="1", color_scheme="gray", as_="span"),
+                                spacing="0",
+                                align="start",
+                            ),
+                            spacing="2",
+                            width="100%",
+                            padding_y="2",
+                        ),
+                    ),
                     spacing="1",
                     width="100%",
                 ),

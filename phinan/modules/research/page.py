@@ -6,7 +6,7 @@ from ...components.layout import main_layout
 from ...state.app import AppState
 from ...state.user_context import UserContextState
 from .state import ResearchState
-from .components import quality_card, analyst_card, range_card, news_card
+from .components import quality_card, analyst_card, range_card, news_card, chart_card
 
 
 def research_header() -> rx.Component:
@@ -18,12 +18,6 @@ def research_header() -> rx.Component:
             on_change=ResearchState.set_ticker_input,
             size="2",
             width="200px",
-        ),
-        rx.select(
-            ["1mo", "3mo", "6mo", "1y"],
-            value=ResearchState.range_period,
-            on_change=ResearchState.set_range_period,
-            size="2",
         ),
         rx.button(
             rx.icon("search", size=16),
@@ -89,6 +83,69 @@ def ticker_header() -> rx.Component:
     )
 
 
+def overview_tab() -> rx.Component:
+    """Overview tab content with quality and analyst cards."""
+    return rx.vstack(
+        rx.grid(
+            quality_card(),
+            analyst_card(),
+            columns="2",
+            spacing="4",
+            width="100%",
+        ),
+        range_card(),
+        spacing="4",
+        width="100%",
+    )
+
+
+def charts_tab() -> rx.Component:
+    """Charts tab content."""
+    return rx.vstack(
+        chart_card(),
+        spacing="4",
+        width="100%",
+    )
+
+
+def news_tab() -> rx.Component:
+    """News tab content."""
+    return rx.vstack(
+        news_card(),
+        spacing="4",
+        width="100%",
+    )
+
+
+def research_tabs() -> rx.Component:
+    """Tabbed research content."""
+    return rx.tabs.root(
+        rx.tabs.list(
+            rx.tabs.trigger("Overview", value="overview"),
+            rx.tabs.trigger("Charts", value="charts"),
+            rx.tabs.trigger("News", value="news"),
+        ),
+        rx.tabs.content(
+            overview_tab(),
+            value="overview",
+            padding_top="4",
+        ),
+        rx.tabs.content(
+            charts_tab(),
+            value="charts",
+            padding_top="4",
+        ),
+        rx.tabs.content(
+            news_tab(),
+            value="news",
+            padding_top="4",
+        ),
+        value=ResearchState.selected_tab,
+        on_change=ResearchState.set_selected_tab,
+        width="100%",
+    )
+
+
 def research_results() -> rx.Component:
     """Research results display."""
     return rx.cond(
@@ -96,16 +153,7 @@ def research_results() -> rx.Component:
         rx.vstack(
             ticker_header(),
             rx.divider(),
-            # Main grid
-            rx.grid(
-                quality_card(),
-                analyst_card(),
-                columns="2",
-                spacing="4",
-                width="100%",
-            ),
-            range_card(),
-            news_card(),
+            research_tabs(),
             spacing="4",
             width="100%",
         ),

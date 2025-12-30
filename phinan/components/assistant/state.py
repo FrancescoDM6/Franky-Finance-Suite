@@ -203,10 +203,80 @@ When you don't have enough data, say so and suggest what additional research mig
             },
         ]
 
-    async def _execute_tools(self, tool_calls: list) -> str:
-        """Execute tool calls and return formatted results."""
+
+    async def _tool_lookup_ticker(self, args: dict) -> str:
+        """Tool: Lookup ticker information."""
         from ...services import services
 
+        symbol = args.get("symbol", "")
+        info = services.market_data.get_ticker_info(symbol)
+        if info:
+            # Safe formatting helpers
+            price = f"${info.current_price:.2f}" if info.current_price is not None else "N/A"
+            pe = info.pe_ratio if info.pe_ratio is not None else "N/A"
+            div = f"{info.dividend_yield:.2%}" if info.dividend_yield is not None else "N/A"
+            rating = info.analyst_rating or "N/A"
+            
+            return (
+                f"**{info.symbol}** - {info.name}\n"
+                f"- Price: {price}\n"
+                f"- P/E: {pe}\n"
+                f"- Dividend Yield: {div}\n"
+                f"- Analyst Rating: {rating}"
+            )
+        return f"Could not find ticker: {symbol}"
+
+    async def _tool_get_price_range(self, args: dict) -> str:
+        """Tool: Get price range."""
+        from ...services import services
+
+        symbol = args.get("symbol", "")
+        period = args.get("period", "3mo")
+        range_data = services.market_data.get_price_range(symbol, period)
+        if range_data:
+            return (
+                f"**{symbol} Price Range ({range_data.period})**\n"
+                f"- High: ${range_data.high:.2f}\n"
+                f"- Low: ${range_data.low:.2f}\n"
+                f"- Current: ${range_data.current:.2f}\n"
+                f"- Position: {range_data.percent_of_range:.0%} of range"
+            )
+        return f"Could not get range for: {symbol}"
+
+    async def _tool_add_to_watchlist(self, args: dict) -> str:
+        """Tool: Add to watchlist."""
+        from ...state.user_context import UserContextState
+
+        symbol = args.get("symbol", "")
+        user_ctx = await self.get_state(UserContextState)
+        user_ctx.add_to_watchlist(symbol)
+        return f"Added {symbol} to watchlist"
+
+    async def _tool_get_news(self, args: dict) -> str:
+        """Tool: Get news."""
+        from ...services import services
+
+        symbol = args.get("symbol", "")
+        news = services.market_data.get_news(symbol)
+        if news:
+            news_text = f"**Recent news for {symbol}:**\n"
+            for item in news[:5]:
+                news_text += f"- {item.title} ({item.publisher})\n"
+            return news_text
+        return f"No recent news for {symbol}"
+
+    @property
+    def _tool_registry(self):
+        """Registry of available tools."""
+        return {
+            "lookup_ticker": self._tool_lookup_ticker,
+            "get_price_range": self._tool_get_price_range,
+            "add_to_watchlist": self._tool_add_to_watchlist,
+            "get_news": self._tool_get_news,
+        }
+
+    async def _execute_tools(self, tool_calls: list) -> str:
+        """Execute tool calls and return formatted results."""
         results = []
 
         for call in tool_calls:
@@ -216,56 +286,22 @@ When you don't have enough data, say so and suggest what additional research mig
 
             if isinstance(args, str):
                 import json
-
-                args = json.loads(args)
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    results.append(f"Error parsing arguments for {name}")
+                    continue
 
             try:
-                if name == "lookup_ticker":
-                    info = services.market_data.get_ticker_info(args.get("symbol", ""))
-                    if info:
-                        results.append(
-                            f"**{info.symbol}** - {info.name}\n"
-                            f"- Price: ${info.current_price:.2f}\n"
-                            f"- P/E: {info.pe_ratio}\n"
-                            f"- Dividend Yield: {info.dividend_yield:.2%}\n"
-                            f"- Analyst Rating: {info.analyst_rating}"
-                        )
+                if name in self._tool_registry:
+                    tool_func = self._tool_registry[name]
+                    # Check if tool function is async
+                    import inspect
+                    if inspect.iscoroutinefunction(tool_func):
+                        result = await tool_func(args)
                     else:
-                        results.append(f"Could not find ticker: {args.get('symbol')}")
-
-                elif name == "get_price_range":
-                    range_data = services.market_data.get_price_range(
-                        args.get("symbol", ""), args.get("period", "3mo")
-                    )
-                    if range_data:
-                        results.append(
-                            f"**{args.get('symbol')} Price Range ({range_data.period})**\n"
-                            f"- High: ${range_data.high:.2f}\n"
-                            f"- Low: ${range_data.low:.2f}\n"
-                            f"- Current: ${range_data.current:.2f}\n"
-                            f"- Position: {range_data.percent_of_range:.0%} of range"
-                        )
-                    else:
-                        results.append(f"Could not get range for: {args.get('symbol')}")
-
-                elif name == "add_to_watchlist":
-                    # Get user context state and add to watchlist
-                    from ...state.user_context import UserContextState
-
-                    user_ctx = await self.get_state(UserContextState)
-                    user_ctx.add_to_watchlist(args.get("symbol", ""))
-                    results.append(f"Added {args.get('symbol')} to watchlist")
-
-                elif name == "get_news":
-                    news = services.market_data.get_news(args.get("symbol", ""))
-                    if news:
-                        news_text = f"**Recent news for {args.get('symbol')}:**\n"
-                        for item in news[:5]:
-                            news_text += f"- {item.title} ({item.publisher})\n"
-                        results.append(news_text)
-                    else:
-                        results.append(f"No recent news for {args.get('symbol')}")
-
+                        result = await tool_func(args) # Fallback if not async defined but called async, though here all are async
+                    results.append(result)
                 else:
                     results.append(f"Unknown tool: {name}")
 
