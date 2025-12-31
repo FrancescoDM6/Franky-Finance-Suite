@@ -327,13 +327,27 @@ class MarketDataService:
 
             items = []
             for article in news[:max_items]:
+                # yfinance API changed: news data is now under article['content']
+                content = article.get("content", {})
+                if not content:
+                    continue
+                    
+                provider = content.get("provider", {})
+                pub_date_str = content.get("pubDate", "")
+                
+                # Parse ISO format date
+                try:
+                    published = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00")) if pub_date_str else datetime.now()
+                except (ValueError, AttributeError):
+                    published = datetime.now()
+                
                 items.append(
                     NewsItem(
-                        title=article.get("title", ""),
-                        publisher=article.get("publisher", ""),
-                        link=article.get("link", ""),
-                        published=datetime.fromtimestamp(article.get("providerPublishTime", 0)),
-                        summary=article.get("summary"),
+                        title=content.get("title", ""),
+                        publisher=provider.get("displayName", ""),
+                        link=content.get("canonicalUrl", {}).get("url", ""),
+                        published=published,
+                        summary=content.get("summary", ""),
                     )
                 )
             return items

@@ -178,10 +178,6 @@ class ResearchState(rx.State):
                 )
                 for item in news[:5]
             ]
-            # DEBUG: Print news items
-            print(f"DEBUG: Created {len(self.recent_news)} news items")
-            for ni in self.recent_news:
-                print(f"  - Title: '{ni.title}' | Publisher: '{ni.publisher}'")
 
             # Compute quality check
             self._compute_quality_check()
