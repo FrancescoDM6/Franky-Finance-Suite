@@ -12,6 +12,8 @@ class NewsItem(rx.Base):
     title: str = ""
     publisher: str = ""
     published: str = ""
+    sentiment_label: str = "neutral"  # "positive", "negative", "neutral"
+    sentiment_score: float = 0.5  # 0-1 confidence
 
 
 class ResearchState(rx.State):
@@ -42,6 +44,13 @@ class ResearchState(rx.State):
     price_range: dict[str, Any] = {}
 
     recent_news: list[NewsItem] = []
+    
+    # Profile-aware insights
+    profile_insights: list[str] = []
+    
+    # LLM synthesis
+    llm_synthesis: str = ""
+    is_generating_synthesis: bool = False
     
     # New: Tab and Chart state
     selected_tab: str = "overview"
@@ -170,25 +179,122 @@ class ResearchState(rx.State):
 
             # Fetch news
             news = services.market_data.get_news(self.selected_ticker)
-            self.recent_news = [
-                NewsItem(
+            news_items = news[:5]
+            
+            # Score sentiment if service available
+            sentiment_scores = []
+            if services.sentiment.health_check():
+                titles = [item.title for item in news_items]
+                sentiment_scores = services.sentiment.score_batch(titles)
+            
+            # Build news items with sentiment
+            self.recent_news = []
+            for i, item in enumerate(news_items):
+                sentiment = sentiment_scores[i] if i < len(sentiment_scores) else {}
+                self.recent_news.append(NewsItem(
                     title=item.title,
                     publisher=item.publisher,
                     published=item.published.isoformat(),
-                )
-                for item in news[:5]
-            ]
+                    sentiment_label=sentiment.get("label", "neutral"),
+                    sentiment_score=sentiment.get("score", 0.5),
+                ))
 
             # Compute quality check
             self._compute_quality_check()
             
             # Fetch price history for charts
             await self._fetch_price_history()
+            
+            # Apply profile-aware insights
+            await self._apply_profile_insights()
+            
+            # Generate LLM synthesis (non-blocking, happens in background)
+            await self._generate_synthesis()
 
         except Exception as e:
             self.error_message = f"Error: {str(e)}"
         finally:
             self.is_loading = False
+
+    async def _generate_synthesis(self):
+        """Generate LLM synthesis of the research data."""
+        from ...services import services
+        from ...state.user_context import UserContextState
+        from .profiles import get_profile
+        from .prompts import build_analysis_prompt
+        
+        # Check if LLM is available
+        if not services.llm.health_check():
+            self.llm_synthesis = ""
+            return
+        
+        try:
+            self.is_generating_synthesis = True
+            
+            # Get user profile
+            user_ctx = await self.get_state(UserContextState)
+            profile = get_profile(user_ctx.active_profile)
+            
+            # Determine aggregate news sentiment
+            sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
+            for item in self.recent_news:
+                sentiment_counts[item.sentiment_label] = sentiment_counts.get(item.sentiment_label, 0) + 1
+            dominant_sentiment = max(sentiment_counts, key=sentiment_counts.get)
+            
+            # Build prompt
+            prompt = build_analysis_prompt(
+                ticker=self.selected_ticker,
+                ticker_info=self.ticker_info,
+                price_range=self.price_range,
+                analyst_data=self.analyst_data,
+                quality_check=self.quality_check,
+                news_sentiment=dominant_sentiment.title(),
+                profile_name=profile.name,
+                profile_description=profile.description,
+                timeframe=profile.typical_timeframe,
+                default_range=profile.default_range_period,
+            )
+            
+            # Call LLM
+            response = services.llm.complete(prompt)
+            self.llm_synthesis = response
+            
+        except Exception as e:
+            print(f"Error generating LLM synthesis: {e}")
+            self.llm_synthesis = ""
+        finally:
+            self.is_generating_synthesis = False
+
+    async def _apply_profile_insights(self):
+        """Generate profile-specific insights based on active user profile."""
+        from ...state.user_context import UserContextState
+        from .profiles import get_papi_insights, get_tio_insights, get_franky_insights
+        
+        try:
+            # Get user context state to find active profile
+            user_ctx = await self.get_state(UserContextState)
+            profile = user_ctx.active_profile.lower()
+            
+            # Convert NewsItem objects to dicts for insight functions
+            news_dicts = [{"title": n.title, "publisher": n.publisher} for n in self.recent_news]
+            
+            if profile == "papi":
+                self.profile_insights = get_papi_insights(
+                    self.ticker_info, self.price_range, self.analyst_data
+                )
+            elif profile == "tio":
+                self.profile_insights = get_tio_insights(
+                    self.ticker_info, self.price_range, news_dicts, self.analyst_data
+                )
+            else:
+                # Franky or default
+                self.profile_insights = get_franky_insights(
+                    self.ticker_info, self.price_range, news_dicts, self.analyst_data
+                )
+        except Exception as e:
+            print(f"Error generating profile insights: {e}")
+            self.profile_insights = []
+
 
     async def _fetch_price_history(self):
         """Fetch price history for charts."""

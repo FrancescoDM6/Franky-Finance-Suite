@@ -26,7 +26,18 @@ def news_card() -> rx.Component:
                         lambda item: rx.hstack(
                             rx.icon("newspaper", size=14, color="var(--gray-9)"),
                             rx.vstack(
-                                rx.text(item.title, size="2", weight="medium", as_="span"),
+                                rx.hstack(
+                                    rx.text(item.title, size="2", weight="medium", as_="span"),
+                                    rx.match(
+                                        item.sentiment_label,
+                                        ("positive", rx.badge("Positive", color_scheme="green", size="1")),
+                                        ("negative", rx.badge("Negative", color_scheme="red", size="1")),
+                                        rx.badge("Neutral", color_scheme="gray", size="1"),
+                                    ),
+                                    spacing="2",
+                                    align="center",
+                                    wrap="wrap",
+                                ),
                                 rx.text(item.publisher, size="1", color_scheme="gray", as_="span"),
                                 spacing="0",
                                 align="start",

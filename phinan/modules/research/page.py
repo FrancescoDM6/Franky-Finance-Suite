@@ -83,9 +83,50 @@ def ticker_header() -> rx.Component:
     )
 
 
+def synthesis_card() -> rx.Component:
+    """LLM-generated synthesis card."""
+    return rx.cond(
+        ResearchState.is_generating_synthesis,
+        rx.card(
+            rx.hstack(
+                rx.spinner(size="2"),
+                rx.text("Generating AI analysis...", size="2", color_scheme="gray"),
+                spacing="2",
+            ),
+            width="100%",
+        ),
+        rx.cond(
+            ResearchState.llm_synthesis != "",
+            rx.card(
+                rx.vstack(
+                    rx.hstack(
+                        rx.icon("sparkles", size=16, color="var(--purple-9)"),
+                        rx.heading("AI Analysis", size="4"),
+                        rx.spacer(),
+                        rx.badge(
+                            UserContextState.profile_display_name,
+                            variant="soft",
+                            color_scheme="purple",
+                        ),
+                        width="100%",
+                        align="center",
+                    ),
+                    rx.divider(),
+                    rx.text(ResearchState.llm_synthesis, size="2", white_space="pre-wrap"),
+                    spacing="3",
+                    width="100%",
+                ),
+                width="100%",
+            ),
+            rx.fragment(),
+        ),
+    )
+
+
 def overview_tab() -> rx.Component:
     """Overview tab content with quality and analyst cards."""
     return rx.vstack(
+        synthesis_card(),
         rx.grid(
             quality_card(),
             analyst_card(),
@@ -146,12 +187,45 @@ def research_tabs() -> rx.Component:
     )
 
 
+def insights_card() -> rx.Component:
+    """Profile-specific insights card."""
+    return rx.cond(
+        ResearchState.profile_insights.length() > 0,
+        rx.card(
+            rx.vstack(
+                rx.hstack(
+                    rx.icon("lightbulb", size=16, color="var(--amber-9)"),
+                    rx.heading("Insights", size="4"),
+                    rx.spacer(),
+                    rx.badge(
+                        UserContextState.profile_display_name,
+                        variant="soft",
+                        color_scheme="amber",
+                    ),
+                    width="100%",
+                    align="center",
+                ),
+                rx.divider(),
+                rx.foreach(
+                    ResearchState.profile_insights,
+                    lambda insight: rx.text(insight, size="2"),
+                ),
+                spacing="2",
+                width="100%",
+            ),
+            width="100%",
+        ),
+        rx.fragment(),
+    )
+
+
 def research_results() -> rx.Component:
     """Research results display."""
     return rx.cond(
         ResearchState.has_results,
         rx.vstack(
             ticker_header(),
+            insights_card(),
             rx.divider(),
             research_tabs(),
             spacing="4",

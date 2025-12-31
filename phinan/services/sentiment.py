@@ -32,11 +32,14 @@ class SentimentService:
         if self._model is None:
             try:
                 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-
+                print(f"Loading sentiment model: {self._model_name}...")
                 self._tokenizer = AutoTokenizer.from_pretrained(self._model_name)
                 self._model = AutoModelForSequenceClassification.from_pretrained(self._model_name)
-            except ImportError:
-                raise ImportError("transformers not installed. Run: pip install transformers torch")
+                print("Sentiment model loaded successfully")
+            except Exception as e:
+                print(f"Error loading sentiment model: {e}")
+                self._enabled = False  # Disable if failed to load
+
 
     def health_check(self) -> bool:
         """Check if sentiment service is available."""
