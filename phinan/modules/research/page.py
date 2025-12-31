@@ -12,12 +12,23 @@ from .components import quality_card, analyst_card, range_card, news_card, chart
 def research_header() -> rx.Component:
     """Research page header with input and controls."""
     return rx.hstack(
-        rx.input(
-            placeholder="Enter ticker (e.g., AAPL)",
-            value=ResearchState.ticker_input,
-            on_change=ResearchState.set_ticker_input,
-            size="2",
-            width="200px",
+        rx.vstack(
+            rx.input(
+                placeholder="Enter ticker (e.g., AAPL)",
+                value=ResearchState.ticker_input,
+                on_change=ResearchState.set_ticker_input,
+                on_key_down=ResearchState.handle_search_key,
+                size="2",
+                width="200px",
+                list="tickers",
+            ),
+            rx.el.datalist(
+                rx.foreach(
+                    ResearchState.ticker_options,
+                    lambda option: rx.el.option(value=option),
+                ),
+                id="tickers",
+            ),
         ),
         rx.button(
             rx.icon("search", size=16),
@@ -65,19 +76,31 @@ def ticker_header() -> rx.Component:
             spacing="1",
         ),
         rx.spacer(),
-        rx.vstack(
-            rx.text(
-                ResearchState.ticker_info.get("sector", ""),
-                size="1",
-                color_scheme="gray",
+        rx.hstack(
+            rx.button(
+                rx.icon("star", size=16),
+                "Watch",
+                on_click=ResearchState.add_to_watchlist,
+                variant="soft",
+                color_scheme="amber",
+                size="2",
             ),
-            rx.text(
-                ResearchState.ticker_info.get("industry", ""),
-                size="1",
-                color_scheme="gray",
+            rx.vstack(
+                rx.text(
+                    ResearchState.ticker_info.get("sector", ""),
+                    size="1",
+                    color_scheme="gray",
+                ),
+                rx.text(
+                    ResearchState.ticker_info.get("industry", ""),
+                    size="1",
+                    color_scheme="gray",
+                ),
+                align="end",
+                spacing="0",
             ),
-            align="end",
-            spacing="0",
+            spacing="3",
+            align="center",
         ),
         width="100%",
     )

@@ -83,7 +83,9 @@ class AssistantState(rx.State):
             from ...services import services
 
             # Build system prompt with user context
-            system_prompt = self._build_system_prompt()
+            system_prompt = await self._build_system_prompt()
+            
+            print(f"--- Sending to LLM ---\nMessages: {len(self.messages)}")
 
             # Get response from LLM
             response = services.llm.chat(
@@ -91,6 +93,8 @@ class AssistantState(rx.State):
                 system=system_prompt,
                 tools=self._get_tool_definitions(),
             )
+            
+            print(f"--- LLM Response ---\n{response}")
 
             # Add assistant response
             assistant_content = response.get("content", "I couldn't generate a response.")
@@ -98,7 +102,12 @@ class AssistantState(rx.State):
             # Check for tool calls and execute them
             if response.get("tool_calls"):
                 tool_results = await self._execute_tools(response["tool_calls"])
+                
+                # IMPORTANT: Append tool output as a separate observation or part of the answer
+                # For this simple chat integration, we append it to the content for display
+                # But for proper history, we might need a better structure in the future
                 assistant_content += f"\n\n{tool_results}"
+                print(f"--- Tool Results ---\n{tool_results}")
 
             self.messages = self.messages + [{"role": "assistant", "content": assistant_content}]
 
@@ -114,19 +123,51 @@ class AssistantState(rx.State):
         finally:
             self.is_thinking = False
 
-    def _build_system_prompt(self) -> str:
-        """Build system prompt with context."""
-        return """You are Phin, an AI finance assistant for the Phinan Finance Suite.
+    async def _build_system_prompt(self) -> str:
+        """Build system prompt with dynamic user context."""
+        from datetime import datetime
+        from ...state.user_context import UserContextState
+        
+        # Fetch user context
+        user_ctx = await self.get_state(UserContextState)
+        profile_name = user_ctx.profile_display_name
+        risk_tolerance = user_ctx.risk_tolerance
+        watchlist = ", ".join(user_ctx.watchlist[:10]) if user_ctx.watchlist else "Empty"
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        
+        return f"""You are Phin, an AI finance assistant for the Phinan Finance Suite.
 
-You help users with:
-- Researching stocks and companies for options trading
-- Analyzing market data and news sentiment
-- Managing their watchlist and tracking trades
-- Understanding structured financial products
+**Current Time:** {current_time}
+**Active User Profile:** {profile_name}
+**Risk Tolerance:** {risk_tolerance}
+**Watchlist (up to 10):** {watchlist}
 
-You have access to tools for looking up ticker information, market data, and managing the user's portfolio.
+**Your Capabilities:**
+1. **Stock Research**: Look up detailed info on any ticker (price, fundamentals, analyst ratings).
+2. **Price Range Analysis**: Get high/low/current position over 1mo, 3mo, 6mo, or 1y periods.
+3. **News & Sentiment**: Fetch recent news headlines for any stock.
+4. **Watchlist Management**: Add stocks to the user's watchlist.
 
-Key principles:
+**Available Tools:**
+- `lookup_ticker(symbol)` - Get stock details
+- `get_price_range(symbol, period)` - Analyze price position in range
+- `add_to_watchlist(symbol)` - Add to user's watchlist
+- `get_news(symbol)` - Get recent news
+
+**IMPORTANT: Answering Questions**
+- If the user asks a general or meta question like "Who are you?", "What can you do?", "What are your capabilities?", or "What time is it?", answer directly using your knowledge and the context above. Do NOT call any tool unless the question is specifically about a stock ticker.
+- If the user asks about a specific stock (e.g., "Tell me about AAPL"), then use the `lookup_ticker` tool.
+- Always stay on topic. If you previously discussed a ticker, that context is for reference, but new questions may not be about that ticker.
+
+**User Profiles:**
+The app supports different trading profiles (Papi, Tio, Franky) with different risk tolerances and strategies.
+- Papi: Conservative, entry/exit plays, 2-week timeframe.
+- Tio: Aggressive, directional plays, 1-2 month timeframe.
+- Franky: Learning mode, varies.
+
+You are currently assisting **{profile_name}** with a **{risk_tolerance}** risk tolerance.
+
+**Key Principles:**
 1. Be concise and actionable
 2. Reference specific data when discussing stocks
 3. Remember the user's risk tolerance and trading style
@@ -201,6 +242,18 @@ When you don't have enough data, say so and suggest what additional research mig
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_capabilities",
+                    "description": "Get information about what the assistant can do. Use this when asked 'what can you do' or 'help'.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                    },
+                },
+            },
         ]
 
 
@@ -265,6 +318,16 @@ When you don't have enough data, say so and suggest what additional research mig
             return news_text
         return f"No recent news for {symbol}"
 
+    async def _tool_get_capabilities(self, args: dict) -> str:
+        """Tool: Get capabilities."""
+        return """**My Capabilities:**
+1. **Stock Research**: Look up detailed info on any ticker (price, fundamentals, analyst ratings).
+2. **Price Range Analysis**: Get high/low/current position over 1mo, 3mo, 6mo, or 1y periods.
+3. **News & Sentiment**: Fetch recent news headlines for any stock.
+4. **Watchlist Management**: Add stocks to the user's watchlist.
+
+Just ask me to "Research AAPL" or "Add NVDA to my watchlist"!"""
+
     @property
     def _tool_registry(self):
         """Registry of available tools."""
@@ -273,6 +336,7 @@ When you don't have enough data, say so and suggest what additional research mig
             "get_price_range": self._tool_get_price_range,
             "add_to_watchlist": self._tool_add_to_watchlist,
             "get_news": self._tool_get_news,
+            "get_capabilities": self._tool_get_capabilities,
         }
 
     async def _execute_tools(self, tool_calls: list) -> str:

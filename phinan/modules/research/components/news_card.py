@@ -27,7 +27,17 @@ def news_card() -> rx.Component:
                             rx.icon("newspaper", size=14, color="var(--gray-9)"),
                             rx.vstack(
                                 rx.hstack(
-                                    rx.text(item.title, size="2", weight="medium", as_="span"),
+                                    rx.cond(
+                                        item.link != "",
+                                        rx.link(
+                                            item.title,
+                                            href=item.link,
+                                            is_external=True,
+                                            size="2",
+                                            weight="medium",
+                                        ),
+                                        rx.text(item.title, size="2", weight="medium", as_="span"),
+                                    ),
                                     rx.match(
                                         item.sentiment_label,
                                         ("positive", rx.badge("Positive", color_scheme="green", size="1")),

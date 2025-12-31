@@ -12,6 +12,7 @@ class NewsItem(rx.Base):
     title: str = ""
     publisher: str = ""
     published: str = ""
+    link: str = ""  # URL to article
     sentiment_label: str = "neutral"  # "positive", "negative", "neutral"
     sentiment_score: float = 0.5  # 0-1 confidence
 
@@ -56,6 +57,49 @@ class ResearchState(rx.State):
     selected_tab: str = "overview"
     chart_period: str = "3mo"
     price_history: list[dict[str, Any]] = []  # [{date, open, high, low, close, volume}, ...]
+
+    # Ticker Validation Data
+    tickers: list[dict] = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._load_tickers()
+
+    def _load_tickers(self):
+        """Load tickers from JSON file."""
+        import json
+        import os
+        
+        try:
+            # Construct path relative to this file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(current_dir, "data", "tickers.json")
+            
+            with open(data_path, "r") as f:
+                self.tickers = json.load(f)
+        except Exception as e:
+            print(f"Error loading tickers: {e}")
+            self.tickers = []
+
+    @rx.var
+    def ticker_options(self) -> list[str]:
+        """Filter tickers based on input."""
+        if not self.ticker_input:
+            return []
+            
+        search_term = self.ticker_input.upper()
+        options = []
+        
+        # Simple fuzzy search
+        count = 0
+        for t in self.tickers:
+            if search_term in t["symbol"] or search_term in t["name"].upper():
+                options.append(f"{t['symbol']} - {t['name']}")
+                count += 1
+                if count >= 10:  # Limit to 10 suggestions
+                    break
+                    
+        return options
 
     @rx.var
     def has_results(self) -> bool:
@@ -104,9 +148,22 @@ class ResearchState(rx.State):
         """Whether we have chart data."""
         return len(self.price_history) > 0
 
+    async def handle_search_key(self, key: str):
+        """Handle key press in search input - trigger search on Enter."""
+        if key == "Enter":
+            await self.research_ticker()
+
     def set_selected_tab(self, tab: str):
         """Set the selected tab."""
         self.selected_tab = tab
+
+    async def add_to_watchlist(self):
+        """Add current ticker to user's watchlist."""
+        from ...state.user_context import UserContextState
+        
+        if self.selected_ticker:
+            user_ctx = await self.get_state(UserContextState)
+            user_ctx.add_to_watchlist(self.selected_ticker)
 
     async def set_chart_period(self, period: str):
         """Set chart period and refresh chart data."""
@@ -132,18 +189,29 @@ class ResearchState(rx.State):
 
         self.is_loading = True
         self.error_message = ""
-        self.selected_ticker = self.ticker_input.strip().upper()
+        
+        # Store the input but don't update selected_ticker yet
+        raw_input = self.ticker_input.strip().upper()
+        
+        # Handle "SYMBOL - Name" format from autocomplete
+        if " - " in raw_input:
+            ticker_to_lookup = raw_input.split(" - ")[0]
+        else:
+            ticker_to_lookup = raw_input
 
         try:
             from ...services import services
 
-            # Fetch ticker info
-            info = services.market_data.get_ticker_info(self.selected_ticker)
+            # Fetch ticker info first to validate
+            info = services.market_data.get_ticker_info(ticker_to_lookup)
 
             if not info:
-                self.error_message = f"Could not find ticker: {self.selected_ticker}"
+                self.error_message = f"Could not find ticker: {ticker_to_lookup}. Try using the stock symbol (e.g., NFLX for Netflix)."
                 self.is_loading = False
                 return
+            
+            # Only update selected_ticker after successful validation
+            self.selected_ticker = ticker_to_lookup
 
             self.ticker_info = {
                 "symbol": info.symbol,
@@ -195,6 +263,7 @@ class ResearchState(rx.State):
                     title=item.title,
                     publisher=item.publisher,
                     published=item.published.isoformat(),
+                    link=item.link,
                     sentiment_label=sentiment.get("label", "neutral"),
                     sentiment_score=sentiment.get("score", 0.5),
                 ))
