@@ -76,6 +76,67 @@ def watchlist_section() -> rx.Component:
     )
 
 
+def positions_section() -> rx.Component:
+    """Portfolio positions display in sidebar."""
+    # Import here to avoid circular import
+    from ..modules.portfolio.state import PortfolioState
+    
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.text("Positions", size="1", weight="bold", color_scheme="gray", padding="8px"),
+                rx.spacer(),
+                rx.badge(
+                    PortfolioState.positions.length(),
+                    variant="soft",
+                    size="1",
+                    color_scheme="green",
+                ),
+                width="100%",
+            ),
+            rx.cond(
+                PortfolioState.has_positions,
+                rx.vstack(
+                    rx.foreach(
+                        PortfolioState.positions,
+                        lambda pos: rx.hstack(
+                            rx.link(
+                                rx.text(pos.ticker_symbol, size="1", weight="medium"),
+                                href=f"/research?ticker={pos.ticker_symbol}",
+                                underline="none",
+                                _hover={"color": "var(--accent-11)"},
+                            ),
+                            rx.spacer(),
+                            rx.text(
+                                rx.cond(
+                                    pos.gain_loss_percent >= 0,
+                                    f"+{pos.gain_loss_percent:.1f}%",
+                                    f"{pos.gain_loss_percent:.1f}%",
+                                ),
+                                size="1",
+                                color=rx.cond(
+                                    pos.gain_loss_percent >= 0,
+                                    "var(--green-11)",
+                                    "var(--red-11)",
+                                ),
+                            ),
+                            width="100%",
+                            padding="4px",
+                        ),
+                    ),
+                    spacing="1",
+                    width="100%",
+                ),
+                rx.text("No positions yet", size="1", color_scheme="gray", padding="8px"),
+            ),
+            spacing="2",
+            width="100%",
+        ),
+        padding="3px",
+        border_top="1px solid var(--gray-a5)",
+    )
+
+
 def sidebar_footer() -> rx.Component:
     """Sidebar footer with user controls."""
     return rx.vstack(
@@ -160,6 +221,12 @@ def sidebar() -> rx.Component:
             # Watchlist section
             rx.box(
                 watchlist_section(),
+                padding_x="3",
+                width="100%",
+            ),
+            # Positions section
+            rx.box(
+                positions_section(),
                 padding_x="3",
                 width="100%",
             ),

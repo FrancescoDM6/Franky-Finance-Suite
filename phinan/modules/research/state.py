@@ -36,6 +36,7 @@ class ResearchState(rx.State):
 
     # Loading states
     is_loading: bool = False
+    loading_stage: str = ""
     error_message: str = ""
 
     # Results (dicts for Reflex serialization)
@@ -112,6 +113,21 @@ class ResearchState(rx.State):
         return self.ticker_info.get("current_price")
 
     @rx.var
+    def upside_percentage(self) -> int:
+        """Calculate upside percentage to target (rounded integer)."""
+        try:
+            current = self.ticker_info.get("current_price")
+            target = self.analyst_data.get("target_price")
+            
+            if not current or not target:
+                return 0
+                
+            upside = ((float(target) / float(current)) - 1) * 100
+            return int(round(upside))
+        except Exception:
+            return 0
+
+    @rx.var
     def range_position_label(self) -> str:
         """Human-readable range position."""
         pct = self.price_range.get("percent_of_range", 0.5)
@@ -151,7 +167,8 @@ class ResearchState(rx.State):
     async def handle_search_key(self, key: str):
         """Handle key press in search input - trigger search on Enter."""
         if key == "Enter":
-            await self.research_ticker()
+            async for _ in self.research_ticker():
+                pass
 
     def set_selected_tab(self, tab: str):
         """Set the selected tab."""
@@ -188,7 +205,11 @@ class ResearchState(rx.State):
             return
 
         self.is_loading = True
+        self.loading_stage = "Fetching Market Data..."
         self.error_message = ""
+        
+        # Yield immediately to show loading state
+        yield
         
         # Store the input but don't update selected_ticker yet
         raw_input = self.ticker_input.strip().upper()
@@ -208,6 +229,7 @@ class ResearchState(rx.State):
             if not info:
                 self.error_message = f"Could not find ticker: {ticker_to_lookup}. Try using the stock symbol (e.g., NFLX for Netflix)."
                 self.is_loading = False
+                self.loading_stage = ""
                 return
             
             # Only update selected_ticker after successful validation
@@ -232,6 +254,10 @@ class ResearchState(rx.State):
                 "num_analysts": info.num_analysts,
             }
 
+            self.loading_stage = "Analyzing Price Action..."
+            # Yield to update UI
+            yield 
+
             # Fetch price range
             range_data = services.market_data.get_price_range(
                 self.selected_ticker, self.range_period
@@ -244,6 +270,9 @@ class ResearchState(rx.State):
                     "current": range_data.current,
                     "percent_of_range": range_data.percent_of_range,
                 }
+            
+            self.loading_stage = "Fetching News & Sentiment..."
+            yield
 
             # Fetch news
             news = services.market_data.get_news(self.selected_ticker)
@@ -252,6 +281,8 @@ class ResearchState(rx.State):
             # Score sentiment if service available
             sentiment_scores = []
             if services.sentiment.health_check():
+                self.loading_stage = "Loading Sentiment Model (first time may take a moment)..."
+                yield
                 titles = [item.title for item in news_items]
                 sentiment_scores = services.sentiment.score_batch(titles)
             
@@ -267,6 +298,9 @@ class ResearchState(rx.State):
                     sentiment_label=sentiment.get("label", "neutral"),
                     sentiment_score=sentiment.get("score", 0.5),
                 ))
+            
+            self.loading_stage = "Calculating Quality Metrics..."
+            yield
 
             # Compute quality check
             self._compute_quality_check()
@@ -274,6 +308,9 @@ class ResearchState(rx.State):
             # Fetch price history for charts
             await self._fetch_price_history()
             
+            self.loading_stage = "Generating AI Synthesis..."
+            yield
+
             # Apply profile-aware insights
             await self._apply_profile_insights()
             
@@ -284,6 +321,7 @@ class ResearchState(rx.State):
             self.error_message = f"Error: {str(e)}"
         finally:
             self.is_loading = False
+            self.loading_stage = ""
 
     async def _generate_synthesis(self):
         """Generate LLM synthesis of the research data."""
@@ -304,6 +342,22 @@ class ResearchState(rx.State):
             user_ctx = await self.get_state(UserContextState)
             profile = get_profile(user_ctx.active_profile)
             
+            # Get portfolio position if user owns this stock
+            portfolio_position = None
+            try:
+                from ..portfolio.state import PortfolioState
+                portfolio_state = await self.get_state(PortfolioState)
+                pos = portfolio_state.get_position_for_ticker(self.selected_ticker)
+                if pos:
+                    portfolio_position = {
+                        "quantity": pos.quantity,
+                        "cost_basis": pos.cost_basis,
+                        "current_price": pos.current_price,
+                        "gain_loss_percent": pos.gain_loss_percent,
+                    }
+            except Exception as e:
+                print(f"Could not fetch portfolio context: {e}")
+            
             # Determine aggregate news sentiment
             sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
             for item in self.recent_news:
@@ -322,6 +376,7 @@ class ResearchState(rx.State):
                 profile_description=profile.description,
                 timeframe=profile.typical_timeframe,
                 default_range=profile.default_range_period,
+                portfolio_position=portfolio_position,
             )
             
             # Call LLM

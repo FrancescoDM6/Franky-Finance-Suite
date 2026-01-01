@@ -78,7 +78,9 @@ class DatabaseManager:
     def execute(self, query: str, params: tuple = ()) -> Any:
         """Execute a write query."""
         with self.get_connection() as conn:
-            return conn.execute(query, params)
+            result = conn.execute(query, params)
+            conn.commit()  # DuckDB requires explicit commit for persistence
+            return result
 
     def query(self, query: str, params: tuple = ()) -> list[dict]:
         """Execute a read query and return results as list of dicts."""

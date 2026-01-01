@@ -16,7 +16,7 @@ Quality Assessment: {quality_overall}
 Quality Flags: {quality_flags}
 
 Recent News Sentiment: {news_sentiment}
-
+{portfolio_context}
 User Profile:
 - Strategy: {profile_description}
 - Typical timeframe: {timeframe}
@@ -26,7 +26,7 @@ Provide a 2-3 sentence summary focusing on:
 1. Current positioning (where in range, momentum direction)
 2. Quality assessment for their strategy
 3. One specific actionable opportunity for their trading style
-
+{portfolio_guidance}
 Be direct and specific with strikes and timeframes that match the user's style.
 """
 
@@ -86,8 +86,32 @@ def build_analysis_prompt(
     profile_description: str,
     timeframe: str,
     default_range: str,
+    portfolio_position: dict = None,
 ) -> str:
-    """Build the strategy analysis prompt with all data filled in."""
+    """Build the strategy analysis prompt with all data filled in.
+    
+    Args:
+        portfolio_position: Optional dict with keys: quantity, cost_basis, current_price, gain_loss_percent
+    """
+    # Build portfolio context if user owns this stock
+    portfolio_context = ""
+    portfolio_guidance = ""
+    if portfolio_position:
+        qty = portfolio_position.get("quantity", 0)
+        cost = portfolio_position.get("cost_basis", 0)
+        pl_pct = portfolio_position.get("gain_loss_percent", 0)
+        portfolio_context = f"""
+User's Position:
+- Holds {qty:,.2f} shares at ${cost:,.2f} cost basis
+- Current P/L: {pl_pct:+.1f}%
+"""
+        if pl_pct > 50:
+            portfolio_guidance = "\nNote: User has significant gains. Consider mentioning profit-taking or protective strategies."
+        elif pl_pct < -20:
+            portfolio_guidance = "\nNote: User is underwater on this position. Consider mentioning recovery strategies or tax-loss harvesting."
+        else:
+            portfolio_guidance = "\nNote: Factor in the user's existing position when suggesting trades."
+    
     return STRATEGY_ANALYSIS_PROMPT.format(
         ticker=ticker,
         strategy_type=profile_name,
@@ -101,9 +125,11 @@ def build_analysis_prompt(
         quality_overall=quality_check.get("overall", "N/A"),
         quality_flags=", ".join(quality_check.get("flags", [])) or "None",
         news_sentiment=news_sentiment,
+        portfolio_context=portfolio_context,
         profile_description=profile_description,
         timeframe=timeframe,
         default_range=default_range,
+        portfolio_guidance=portfolio_guidance,
     )
 
 

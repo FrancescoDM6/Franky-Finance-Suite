@@ -1,5 +1,6 @@
-"""Portfolio module - Unified performance view."""
+"""Portfolio module - Track stock positions and performance."""
 
 from . import page
+from . import state
 
-__all__ = ["page"]
+__all__ = ["page", "state"]

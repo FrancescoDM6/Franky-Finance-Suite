@@ -96,8 +96,8 @@ class AssistantState(rx.State):
             
             print(f"--- LLM Response ---\n{response}")
 
-            # Add assistant response
-            assistant_content = response.get("content", "I couldn't generate a response.")
+            # Add assistant response - handle None content from Gemini tool calls
+            assistant_content = response.get("content") or ""
 
             # Check for tool calls and execute them
             if response.get("tool_calls"):

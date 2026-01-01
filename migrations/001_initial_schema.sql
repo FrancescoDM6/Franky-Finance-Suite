@@ -9,8 +9,9 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 
 -- User context storage for persistent assistant memory
+CREATE SEQUENCE IF NOT EXISTS user_context_id_seq;
 CREATE TABLE IF NOT EXISTS user_context (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('user_context_id_seq'),
     key TEXT NOT NULL UNIQUE,
     value TEXT NOT NULL,
     value_type TEXT NOT NULL,
@@ -20,8 +21,9 @@ CREATE TABLE IF NOT EXISTS user_context (
 CREATE INDEX IF NOT EXISTS idx_user_context_key ON user_context(key);
 
 -- Chat history for assistant conversations
+CREATE SEQUENCE IF NOT EXISTS chat_history_id_seq;
 CREATE TABLE IF NOT EXISTS chat_history (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('chat_history_id_seq'),
     session_id TEXT NOT NULL,
     role TEXT NOT NULL,
     content TEXT NOT NULL,
@@ -32,8 +34,9 @@ CREATE INDEX IF NOT EXISTS idx_chat_history_session ON chat_history(session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_history_created ON chat_history(created_at DESC);
 
 -- User notes with semantic search support
+CREATE SEQUENCE IF NOT EXISTS notes_id_seq;
 CREATE TABLE IF NOT EXISTS notes (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('notes_id_seq'),
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     note_type TEXT DEFAULT 'general',
@@ -49,8 +52,9 @@ CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notes_updated ON notes(updated_at DESC);
 
 -- Research data for ticker analysis
+CREATE SEQUENCE IF NOT EXISTS research_id_seq;
 CREATE TABLE IF NOT EXISTS research (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('research_id_seq'),
     ticker_symbol TEXT NOT NULL,
     research_type TEXT NOT NULL,
     data JSON NOT NULL,
@@ -64,8 +68,9 @@ CREATE INDEX IF NOT EXISTS idx_research_type ON research(research_type);
 CREATE INDEX IF NOT EXISTS idx_research_created ON research(created_at DESC);
 
 -- Portfolio holdings
+CREATE SEQUENCE IF NOT EXISTS portfolio_id_seq;
 CREATE TABLE IF NOT EXISTS portfolio (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('portfolio_id_seq'),
     ticker_symbol TEXT NOT NULL,
     quantity DECIMAL(18, 8) NOT NULL,
     cost_basis DECIMAL(18, 4) NOT NULL,
@@ -77,8 +82,9 @@ CREATE TABLE IF NOT EXISTS portfolio (
 CREATE INDEX IF NOT EXISTS idx_portfolio_ticker ON portfolio(ticker_symbol);
 
 -- Options positions
+CREATE SEQUENCE IF NOT EXISTS options_positions_id_seq;
 CREATE TABLE IF NOT EXISTS options_positions (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('options_positions_id_seq'),
     ticker_symbol TEXT NOT NULL,
     option_type TEXT NOT NULL,
     strike_price DECIMAL(18, 4) NOT NULL,
@@ -98,8 +104,9 @@ CREATE INDEX IF NOT EXISTS idx_options_expiration ON options_positions(expiratio
 CREATE INDEX IF NOT EXISTS idx_options_status ON options_positions(status);
 
 -- Market data cache
+CREATE SEQUENCE IF NOT EXISTS market_data_cache_id_seq;
 CREATE TABLE IF NOT EXISTS market_data_cache (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('market_data_cache_id_seq'),
     ticker_symbol TEXT NOT NULL,
     data_type TEXT NOT NULL,
     data JSON NOT NULL,

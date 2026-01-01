@@ -7,6 +7,8 @@ import reflex as rx
 
 from ...components.layout import main_layout
 from ...state.app import AppState
+from ...state.user_context import UserContextState
+from ..portfolio.state import PortfolioState
 
 
 def notes_content() -> rx.Component:
@@ -53,7 +55,11 @@ def notes_content() -> rx.Component:
     )
 
 
-@rx.page(route="/notes", title="Notes | Phinan Finance Suite", on_load=AppState.set_page("notes"))
+@rx.page(
+    route="/notes",
+    title="Notes | Phinan Finance Suite",
+    on_load=[UserContextState.load_context, PortfolioState.load_positions],
+)
 def notes_page() -> rx.Component:
     """Notes page."""
     return main_layout(notes_content())

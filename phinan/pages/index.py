@@ -5,6 +5,7 @@ import reflex as rx
 from ..components.layout import main_layout
 from ..state.app import AppState
 from ..state.user_context import UserContextState
+from ..modules.portfolio.state import PortfolioState
 
 
 def stat_card(title: str, value: rx.Var | str, subtitle: str = "", color_scheme: str = "gray") -> rx.Component:
@@ -125,7 +126,11 @@ def dashboard_content() -> rx.Component:
     )
 
 
-@rx.page(route="/", title="Home | Phinan Finance Suite", on_load=AppState.set_page("home"))
+@rx.page(
+    route="/",
+    title="Home | Phinan Finance Suite",
+    on_load=[UserContextState.load_context, PortfolioState.load_positions],
+)
 def index() -> rx.Component:
     """Home page."""
     return main_layout(dashboard_content())

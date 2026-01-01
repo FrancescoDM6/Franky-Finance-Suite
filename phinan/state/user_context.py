@@ -5,6 +5,7 @@ Contains user preferences, watchlist, and trading history.
 """
 
 import reflex as rx
+from datetime import datetime
 from typing import Optional
 
 
@@ -83,11 +84,9 @@ class UserContextState(rx.State):
                     self.typical_timeframe = value
                 elif key == "watchlist":
                     import json
-
                     self.watchlist = json.loads(value)
                 elif key == "avoid_list":
                     import json
-
                     self.avoid_list = json.loads(value)
 
             self._loaded = True
@@ -97,12 +96,8 @@ class UserContextState(rx.State):
     def _save_context_value(self, key: str, value: str, value_type: str = "string"):
         """Save a single context value to database."""
         from ..services import services
-
+        
         try:
-            from datetime import datetime
-            
-            now = datetime.now()
-            
             services.db.execute(
                 """
                 INSERT INTO user_context (key, value, value_type, updated_at)
@@ -111,7 +106,7 @@ class UserContextState(rx.State):
                     value = excluded.value,
                     updated_at = excluded.updated_at
                 """,
-                (key, value, value_type, now),
+                (key, value, value_type, datetime.now()),
             )
         except Exception as e:
             print(f"Error saving context value: {e}")

@@ -34,30 +34,33 @@ def main_layout(*children) -> rx.Component:
             width="100%",
         ),
         
+        # NOTE: Chat disabled for now
+        # To re-enable, uncomment the FAB and assistant_panel below
+        
         # Floating Action Button for Assistant
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("message-circle", size=24),
-                on_click=AppState.toggle_assistant,
-                variant="solid",
-                color_scheme="blue",
-                size="4",
-                radius="full",
-                position="fixed",
-                bottom="32px",
-                right="32px",
-                z_index="40",
-                box_shadow="var(--shadow-4)",
-            ),
-            content="Chat with Phin",
-        ),
+        # rx.tooltip(
+        #     rx.icon_button(
+        #         rx.icon("message-circle", size=24),
+        #         on_click=AppState.toggle_assistant,
+        #         variant="solid",
+        #         color_scheme="blue",
+        #         size="4",
+        #         radius="full",
+        #         position="fixed",
+        #         bottom="32px",
+        #         right="32px",
+        #         z_index="40",
+        #         box_shadow="var(--shadow-4)",
+        #     ),
+        #     content="Chat with Phin",
+        # ),
 
         # Assistant panel (Floating Overlay)
-        rx.cond(
-            AppState.assistant_visible,
-            assistant_panel(),
-            rx.fragment(),
-        ),
+        # rx.cond(
+        #     AppState.assistant_visible,
+        #     assistant_panel(),
+        #     rx.fragment(),
+        # ),
         
         width="100%",
         height="100vh",

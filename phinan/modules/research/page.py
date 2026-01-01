@@ -7,6 +7,7 @@ from ...state.app import AppState
 from ...state.user_context import UserContextState
 from .state import ResearchState
 from .components import quality_card, analyst_card, range_card, news_card, chart_card
+from ..portfolio.state import PortfolioState
 
 
 def research_header() -> rx.Component:
@@ -57,10 +58,11 @@ def ticker_header() -> rx.Component:
                 rx.heading(ResearchState.selected_ticker, size="6"),
                 rx.cond(
                     ResearchState.current_price,
-                    rx.badge(
-                        rx.text("$", ResearchState.current_price),
-                        color_scheme="green",
-                        size="2",
+                    rx.text(
+                        "$", ResearchState.current_price,
+                        size="5",
+                        weight="bold",
+                        color="var(--green-11)",
                     ),
                     rx.fragment(),
                 ),
@@ -146,10 +148,73 @@ def synthesis_card() -> rx.Component:
     )
 
 
+def my_position_card() -> rx.Component:
+    """Card showing user's position in this stock (if any)."""
+    return rx.cond(
+        PortfolioState.position_tickers.contains(ResearchState.selected_ticker),
+        rx.card(
+            rx.vstack(
+                rx.hstack(
+                    rx.icon("briefcase", size=18, color="var(--accent-9)"),
+                    rx.heading("My Position", size="4"),
+                    rx.spacer(),
+                    rx.badge("Owned", color_scheme="green", variant="soft"),
+                    width="100%",
+                    align="center",
+                ),
+                rx.text(
+                    "You hold this stock. The AI analysis above factors in your position.",
+                    size="2",
+                    color_scheme="gray",
+                ),
+                spacing="2",
+                width="100%",
+            ),
+            width="100%",
+        ),
+        # Not owned - show "Add to Portfolio" option
+        rx.cond(
+            ResearchState.has_results,
+            rx.card(
+                rx.hstack(
+                    rx.vstack(
+                        rx.text("Track this stock?", size="2", weight="medium"),
+                        rx.text(
+                            "Add to your portfolio to get personalized insights.",
+                            size="1",
+                            color_scheme="gray",
+                        ),
+                        align="start",
+                        spacing="1",
+                    ),
+                    rx.spacer(),
+                    rx.button(
+                        rx.icon("plus", size=14),
+                        "Add to Portfolio",
+                        variant="soft",
+                        size="1",
+                        on_click=rx.redirect("/portfolio"),
+                    ),
+                    width="100%",
+                    align="center",
+                ),
+                width="100%",
+            ),
+            rx.fragment(),
+        ),
+    )
+
+
 def overview_tab() -> rx.Component:
     """Overview tab content with quality and analyst cards."""
     return rx.vstack(
         synthesis_card(),
+        my_position_card(),
+        rx.cond(
+            ResearchState.llm_synthesis == "",
+            insights_card(),
+            rx.fragment(),
+        ),
         rx.grid(
             quality_card(),
             analyst_card(),
@@ -245,35 +310,54 @@ def insights_card() -> rx.Component:
 def research_results() -> rx.Component:
     """Research results display."""
     return rx.cond(
-        ResearchState.has_results,
-        rx.vstack(
-            ticker_header(),
-            insights_card(),
-            rx.divider(),
-            research_tabs(),
-            spacing="4",
+        ResearchState.is_loading,
+        # Loading state - show spinner with stage text
+        rx.center(
+            rx.vstack(
+                rx.spinner(size="3"),
+                rx.text(ResearchState.loading_stage, size="3", weight="bold", color_scheme="blue"),
+                rx.text("Please wait while we gather data...", size="2", color_scheme="gray"),
+                spacing="4",
+                align="center",
+            ),
+            padding="40px",
             width="100%",
         ),
+        # Not loading - check for results or error
         rx.cond(
-            ResearchState.error_message != "",
-            rx.callout(
-                ResearchState.error_message,
-                icon="circle-alert",
-                color_scheme="red",
+            ResearchState.has_results,
+            # Has results - show research data
+            rx.vstack(
+                ticker_header(),
+                rx.divider(),
+                research_tabs(),
+                spacing="4",
+                width="100%",
             ),
-            rx.center(
-                rx.vstack(
-                    rx.icon("search", size=48, color="var(--gray-8)"),
-                    rx.text("Enter a ticker symbol to begin research", color_scheme="gray"),
-                    rx.text(
-                        "Try AAPL, NVDA, ORCL, or any stock ticker",
-                        size="1",
-                        color_scheme="gray",
-                    ),
-                    spacing="2",
-                    align="center",
+            # No results - check for error or empty state
+            rx.cond(
+                ResearchState.error_message != "",
+                # Error state
+                rx.callout(
+                    ResearchState.error_message,
+                    icon="circle-alert",
+                    color_scheme="red",
                 ),
-                padding="8",
+                # Empty state - prompt to search
+                rx.center(
+                    rx.vstack(
+                        rx.icon("search", size=48, color="var(--gray-8)"),
+                        rx.text("Enter a ticker symbol to begin research", color_scheme="gray"),
+                        rx.text(
+                            "Try AAPL, NVDA, ORCL, or any stock ticker",
+                            size="1",
+                            color_scheme="gray",
+                        ),
+                        spacing="2",
+                        align="center",
+                    ),
+                    padding="8",
+                ),
             ),
         ),
     )
@@ -299,7 +383,12 @@ def research_content() -> rx.Component:
     )
 
 
-@rx.page(route="/research", title="Research | Phinan Finance Suite", on_load=AppState.set_page("research"))
+@rx.page(
+    route="/research",
+    title="Research | Phinan Finance Suite",
+    on_load=[UserContextState.load_context, PortfolioState.load_positions],
+)
 def research_page() -> rx.Component:
     """Research page."""
     return main_layout(research_content())
+

@@ -91,6 +91,21 @@ class MarketDataSettings(BaseSettings):
     )
 
 
+class GeminiSettings(BaseSettings):
+    """Gemini LLM configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="PHINAN_GEMINI_")
+
+    api_key: str = Field(
+        default="",
+        description="Gemini API key from aistudio.google.com",
+    )
+    model: str = Field(
+        default="gemini-3.0-flash-preview",
+        description="Gemini model to use",
+    )
+
+
 class AssistantSettings(BaseSettings):
     """Assistant configuration."""
 
@@ -124,6 +139,7 @@ class Settings(BaseSettings):
     # Nested settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     ollama: OllamaSettings = Field(default_factory=OllamaSettings)
+    gemini: GeminiSettings = Field(default_factory=GeminiSettings)
     ai_services: AIServicesSettings = Field(default_factory=AIServicesSettings)
     market_data: MarketDataSettings = Field(default_factory=MarketDataSettings)
     assistant: AssistantSettings = Field(default_factory=AssistantSettings)

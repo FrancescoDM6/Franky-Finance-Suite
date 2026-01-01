@@ -43,6 +43,19 @@ def analyst_card() -> rx.Component:
                         size="3",
                         weight="bold",
                     ),
+                    rx.cond(
+                        ResearchState.analyst_data.get("target_price") & ResearchState.current_price,
+                        rx.badge(
+                            rx.text(
+                                ResearchState.upside_percentage,
+                                "% Upside",
+                            ),
+                            color_scheme="green",
+                            variant="soft",
+                            size="1",
+                        ),
+                        rx.fragment(),
+                    ),
                     align="center",
                 ),
                 rx.vstack(
@@ -60,32 +73,6 @@ def analyst_card() -> rx.Component:
                 ),
                 justify="between",
                 width="100%",
-            ),
-            # Upside/downside calculation
-            rx.cond(
-                ResearchState.analyst_data.get("target_price"),
-                rx.box(
-                    rx.text(
-                        rx.cond(
-                            ResearchState.current_price,
-                            rx.text(
-                                "Upside to target: ",
-                                rx.text(
-                                    ((ResearchState.analyst_data.get("target_price", 0).to(float) / ResearchState.current_price - 1) * 100).to(int),
-                                    "%",
-                                    weight="bold",
-                                    as_="span",
-                                ),
-                                as_="span",
-                            ),
-                            "",
-                        ),
-                        size="1",
-                        color_scheme="gray",
-                    ),
-                    padding_top="2",
-                ),
-                rx.fragment(),
             ),
             spacing="3",
             width="100%",

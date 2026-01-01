@@ -42,14 +42,9 @@ class SentimentService:
 
 
     def health_check(self) -> bool:
-        """Check if sentiment service is available."""
-        if not self._enabled:
-            return False
-        try:
-            self._load_model()
-            return self._model is not None
-        except Exception:
-            return False
+        """Check if sentiment service is available (without loading model)."""
+        # Don't trigger model load here - just check if enabled
+        return self._enabled
 
     def score(self, text: str) -> dict:
         """Score sentiment of text.
