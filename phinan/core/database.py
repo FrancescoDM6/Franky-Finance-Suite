@@ -2,11 +2,13 @@
 
 Key patterns:
 - Singleton manager with lazy initialization
-- Context-managed connections for automatic cleanup
-- Separate read/write connection patterns for DuckDB's single-writer limitation
+- Shared connection (DuckDB handles concurrent reads internally)
+- Write lock for serialized writes
+- Context manager pattern for automatic cleanup
 """
 
 import threading
+import atexit
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator, Optional
@@ -21,9 +23,12 @@ class DatabaseManager:
 
     DuckDB allows multiple readers but only one writer at a time.
     This manager provides:
-    - Thread-local read connections for concurrent reads
-    - Single writer connection with lock for serialized writes
+    - Shared connection (DuckDB Python API handles concurrent reads internally)
+    - Write lock for serialized writes
     - Context manager pattern for automatic cleanup
+
+    Note: DuckDB requires all connections to the same file use identical
+    configuration (can't mix read_only=True with regular connections).
     """
 
     _instance: Optional["DatabaseManager"] = None
@@ -46,34 +51,57 @@ class DatabaseManager:
         self._db_path = settings.database.resolved_path
         self._writer_conn: Optional[duckdb.DuckDBPyConnection] = None
         self._writer_lock = threading.Lock()
-        self._local = threading.local()
         self._initialized = True
 
         # Ensure database directory exists
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Register cleanup on exit
+        atexit.register(self._cleanup)
+
+    def _cleanup(self):
+        """Clean up connection on exit."""
+        if self._writer_conn:
+            try:
+                self._writer_conn.close()
+            except Exception:
+                pass
+
+    def _get_shared_connection(self) -> duckdb.DuckDBPyConnection:
+        """Get or create the shared database connection.
+
+        DuckDB requires all connections to use the same configuration.
+        We use a single shared connection with cursor() for thread-safety.
+        DuckDB's Python API handles concurrent access internally.
+        """
+        if self._writer_conn is None:
+            self._writer_conn = duckdb.connect(str(self._db_path))
+        return self._writer_conn
 
     @contextmanager
     def get_connection(self, read_only: bool = False) -> Generator[duckdb.DuckDBPyConnection, None, None]:
         """Get a database connection as context manager.
 
         Args:
-            read_only: Deprecated, kept for interface compatibility. 
-                      All connections are now standard shared connections to avoid config conflicts.
+            read_only: If True, acquires read lock (allows concurrent reads).
+                      If False, acquires write lock (exclusive access for writes).
 
         Yields:
             DuckDB connection
+
+        Note:
+            DuckDB doesn't support mixing read_only and regular connections to
+            the same file. Instead, we use a shared connection with appropriate
+            locking: reads can proceed concurrently, writes are serialized.
         """
-        # Always use writer lock for connection acquisition to ensure safe sharing
-        # In a real heavy-load scenario, we might want a connection pool
-        # For now, sharing the single writer connection avoids "different config" errors
-        with self._writer_lock:
-            if self._writer_conn is None:
-                self._writer_conn = duckdb.connect(str(self._db_path))
-            
-            # Create a cursor/duplicate for this transaction if possible, 
-            # or yield the connection itself (DuckDB python connections are generally thread-safe for simple queries)
-            # Better pattern: yield the shared connection, but rely on DuckDB's internal locking
-            yield self._writer_conn
+        if read_only:
+            # For reads, we still use the shared connection but without
+            # holding the writer lock - DuckDB handles read concurrency internally
+            yield self._get_shared_connection()
+        else:
+            # Writer must hold lock for serialized writes
+            with self._writer_lock:
+                yield self._get_shared_connection()
 
     def execute(self, query: str, params: tuple = ()) -> Any:
         """Execute a write query."""

@@ -18,6 +18,9 @@ from .state.app import AppState
 from .state.user_context import UserContextState
 from .components.assistant.state import AssistantState
 
+# Import API endpoints
+from .api import health_api
+
 
 def on_load():
     """Initialize services on first load."""
@@ -27,7 +30,6 @@ def on_load():
     services.db.initialize_schema()
 
 
-# Create the Reflex app
 app = rx.App(
     theme=rx.theme(
         accent_color="blue",
@@ -35,4 +37,5 @@ app = rx.App(
         radius="medium",
     ),
     stylesheets=["/styles.css"],
+    api_transformer=health_api,
 )

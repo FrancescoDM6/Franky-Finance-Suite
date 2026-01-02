@@ -1,6 +1,7 @@
 """Phinan Finance Suite - Reflex Configuration."""
 
 import reflex as rx
+from reflex.plugins.sitemap import SitemapPlugin
 
 config = rx.Config(
     app_name="phinan",
@@ -8,5 +9,6 @@ config = rx.Config(
     description="Personal finance app with AI assistant",
     plugins=[
         rx.plugins.TailwindV4Plugin(),
+        SitemapPlugin(),
     ],
 )

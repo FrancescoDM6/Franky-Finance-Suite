@@ -33,44 +33,10 @@ def quality_card() -> rx.Component:
             rx.divider(),
             rx.vstack(
                 metric_row("Industry", ResearchState.quality_check.get("industry", "N/A")),
-                metric_row(
-                    "P/E Ratio",
-                    rx.cond(
-                        ResearchState.ticker_info.get("pe_ratio"),
-                        ResearchState.ticker_info.get("pe_ratio"),
-                        "N/A",
-                    ),
-                ),
-                metric_row(
-                    "Profit Margin",
-                    rx.cond(
-                        ResearchState.ticker_info.get("profit_margin"),
-                        rx.text(
-                            (ResearchState.ticker_info.get("profit_margin", 0).to(float) * 100).to(int),
-                            "%",
-                        ),
-                        "N/A",
-                    ),
-                ),
-                metric_row(
-                    "Debt/Equity",
-                    rx.cond(
-                        ResearchState.ticker_info.get("debt_to_equity"),
-                        ResearchState.ticker_info.get("debt_to_equity"),
-                        "N/A",
-                    ),
-                ),
-                metric_row(
-                    "Dividend Yield",
-                    rx.cond(
-                        ResearchState.ticker_info.get("dividend_yield"),
-                        rx.text(
-                            (ResearchState.ticker_info.get("dividend_yield", 0).to(float) * 100).to(int),
-                            "%",
-                        ),
-                        "N/A",
-                    ),
-                ),
+                metric_row("P/E Ratio", ResearchState.fmt_pe_ratio),
+                metric_row("Profit Margin", ResearchState.fmt_profit_margin),
+                metric_row("Debt/Equity", ResearchState.fmt_debt_to_equity),
+                metric_row("Dividend Yield", ResearchState.fmt_dividend_yield),
                 spacing="2",
                 width="100%",
             ),

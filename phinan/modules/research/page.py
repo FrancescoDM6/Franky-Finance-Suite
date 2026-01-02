@@ -6,7 +6,7 @@ from ...components.layout import main_layout
 from ...state.app import AppState
 from ...state.user_context import UserContextState
 from .state import ResearchState
-from .components import quality_card, analyst_card, range_card, news_card, chart_card
+from .components import quality_card, analyst_card, range_card, news_card, chart_card, options_card, volatility_card
 from ..portfolio.state import PortfolioState
 
 
@@ -137,8 +137,17 @@ def synthesis_card() -> rx.Component:
                         align="center",
                     ),
                     rx.divider(),
-                    rx.text(ResearchState.llm_synthesis, size="2", white_space="pre-wrap"),
-                    spacing="3",
+                    rx.markdown(
+                        ResearchState.safe_llm_synthesis,
+                        component_map={
+                            "h1": lambda text: rx.heading(text, size="3", margin_top="0.05em", margin_bottom="0.05em"),
+                            "h2": lambda text: rx.heading(text, size="2", margin_top="0.05em", margin_bottom="0.05em"),
+                            "h3": lambda text: rx.heading(text, size="2", weight="bold", margin_top="0.05em", margin_bottom="0.05em"),
+                            "p": lambda text: rx.text(text, size="1", margin_bottom="0.05em"),
+                            "li": lambda text: rx.text(text, size="1", display="list-item", margin_left="1em"),
+                        },
+                    ),
+                    spacing="1",
                     width="100%",
                 ),
                 width="100%",
@@ -246,12 +255,23 @@ def news_tab() -> rx.Component:
     )
 
 
+def options_tab() -> rx.Component:
+    """Options tab content."""
+    return rx.hstack(
+        options_card(),
+        volatility_card(),
+        spacing="4",
+        width="100%",
+    )
+
+
 def research_tabs() -> rx.Component:
     """Tabbed research content."""
     return rx.tabs.root(
         rx.tabs.list(
             rx.tabs.trigger("Overview", value="overview"),
             rx.tabs.trigger("Charts", value="charts"),
+            rx.tabs.trigger("Options", value="options"),
             rx.tabs.trigger("News", value="news"),
         ),
         rx.tabs.content(
@@ -262,6 +282,11 @@ def research_tabs() -> rx.Component:
         rx.tabs.content(
             charts_tab(),
             value="charts",
+            padding_top="4",
+        ),
+        rx.tabs.content(
+            options_tab(),
+            value="options",
             padding_top="4",
         ),
         rx.tabs.content(
@@ -386,7 +411,7 @@ def research_content() -> rx.Component:
 @rx.page(
     route="/research",
     title="Research | Phinan Finance Suite",
-    on_load=[UserContextState.load_context, PortfolioState.load_positions],
+    on_load=[UserContextState.load_context, PortfolioState.load_positions, ResearchState.check_pending_search],
 )
 def research_page() -> rx.Component:
     """Research page."""

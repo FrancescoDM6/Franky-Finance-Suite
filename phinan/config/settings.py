@@ -51,8 +51,8 @@ class AIServicesSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PHINAN_AI_SERVICES_")
 
     sentiment_model: str = Field(
-        default="yiyanghkust/finbert-tone",
-        description="FinBERT model for sentiment analysis",
+        default="ProsusAI/finbert",
+        description="ProsusAI FinBERT model (Industry Standard)",
     )
     embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",

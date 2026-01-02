@@ -1,5 +1,44 @@
 # CLAUDE.md
 
+## Before Starting ANY Task
+
+1. ✅ Read `docs/REFLEX_REFERENCE.md` if task involves UI components
+2. ✅ Use `view` to check similar existing code
+3. ✅ For Reflex syntax questions, search https://reflex.dev/docs/
+
+**Critical Rule**: State variables use `.to(type)`, NEVER `int()`, `str()`, `float()`
+
+## Reflex Framework Knowledge
+
+**IMPORTANT**: Claude's knowledge of Reflex may be outdated or incomplete.
+
+**Before writing ANY Reflex code**, read:
+1. `docs/REFLEX_REFERENCE.md` - Curated patterns from official docs
+2. Existing components in `phinan/components/` for established patterns
+3. When in doubt, use `view` tool to check similar code in the codebase
+
+### Most Common Mistake
+Using Python built-ins (`int()`, `str()`, `float()`) instead of `.to()` on State variables.
+
+**Remember**: State variables are `rx.Var` objects that require `.to(type)` for conversion.
+
+## When Reflex Syntax is Unclear
+
+If you encounter a Reflex pattern not covered in `docs/REFLEX_REFERENCE.md`:
+
+1. **Search official docs**: Use web_search for "reflex.dev [specific feature]"
+2. **Check existing code**: Use `view` to find similar patterns in the codebase
+3. **Ask for clarification**: Tell the user "I'm not certain about this Reflex pattern, let me search the docs"
+
+Example:
+```bash
+# If unsure about Reflex table syntax
+web_search("reflex.dev table component documentation")
+```
+
+**Never guess at Reflex syntax** - it's better to search or ask than to use incorrect patterns.
+
+## Project Guidance
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -136,18 +175,22 @@ Three trading profiles with different research emphasis:
 - Service registry with lazy loading
 - Database manager with DuckDB
 - Market data service (yfinance)
-- LLM service (Ollama)
+- LLM service (Ollama + Google Gemini)
 - Main layout with sidebar + assistant panel
-- Research module with quality/analyst/range cards
+- Research module with:
+  - Quality/analyst/range cards
+  - Portfolio integration (My Position card, P/L context)
+  - Ticker autocomplete
+- Portfolio module:
+  - Positions tracking with live P/L
+  - Integration with Research context
+  - CRUD operations
 - Assistant chat interface with tool calling
-- Stub pages for Notes, Options, Portfolio
 
 **Next Steps:**
-1. Wire up real yfinance data in Research module
-2. Implement LLM tool execution in Assistant
-3. Add sentiment scoring to news in Research
-4. Build Options module with chain viewer
-5. Add trade logging to database
+1. **Research Enhancements:** Options chain integration, deeper analyst data, sentiment improvements.
+2. **Home Page:** Phin Daily Brief, removed "Getting Started", improved quick actions.
+3. **Deployment Prep:** Vercel compatibility, production config.
 
 ## Planning Documents
 
