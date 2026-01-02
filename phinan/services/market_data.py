@@ -354,3 +354,89 @@ class MarketDataService:
         except Exception as e:
             print(f"Error fetching news for {symbol}: {e}")
             return []
+
+    def get_analyst_details(self, symbol: str) -> dict:
+        """Get detailed analyst data including recommendation breakdown.
+
+        Args:
+            symbol: Stock ticker symbol
+
+        Returns:
+            Dict with recommendation_counts, price_targets, and recent_changes
+        """
+        yf = self._get_yf()
+
+        result = {
+            "recommendation_counts": {
+                "strong_buy": 0,
+                "buy": 0,
+                "hold": 0,
+                "sell": 0,
+                "strong_sell": 0,
+            },
+            "price_targets": {
+                "low": None,
+                "mean": None,
+                "median": None,
+                "high": None,
+            },
+            "recent_changes": [],
+        }
+
+        try:
+            ticker = yf.Ticker(symbol)
+
+            # Get recommendations summary
+            try:
+                rec_summary = ticker.recommendations_summary
+                if rec_summary is not None and not rec_summary.empty:
+                    # Get the most recent row (index 0 is usually 0m = current month)
+                    latest = rec_summary.iloc[0] if len(rec_summary) > 0 else None
+                    if latest is not None:
+                        result["recommendation_counts"] = {
+                            "strong_buy": int(latest.get("strongBuy", 0)),
+                            "buy": int(latest.get("buy", 0)),
+                            "hold": int(latest.get("hold", 0)),
+                            "sell": int(latest.get("sell", 0)),
+                            "strong_sell": int(latest.get("strongSell", 0)),
+                        }
+            except Exception as e:
+                print(f"Error fetching recommendations summary for {symbol}: {e}")
+
+            # Get price targets
+            try:
+                info = ticker.info
+                if info:
+                    result["price_targets"] = {
+                        "low": info.get("targetLowPrice"),
+                        "mean": info.get("targetMeanPrice"),
+                        "median": info.get("targetMedianPrice"),
+                        "high": info.get("targetHighPrice"),
+                    }
+            except Exception as e:
+                print(f"Error fetching price targets for {symbol}: {e}")
+
+            # Get recent upgrades/downgrades
+            try:
+                upgrades = ticker.upgrades_downgrades
+                if upgrades is not None and not upgrades.empty:
+                    # Get the 5 most recent changes
+                    recent = upgrades.head(5)
+                    for idx, row in recent.iterrows():
+                        # idx is the date, row contains firm, toGrade, fromGrade, action
+                        date_str = idx.strftime("%b %d") if hasattr(idx, 'strftime') else str(idx)[:10]
+                        result["recent_changes"].append({
+                            "date": date_str,
+                            "firm": row.get("Firm", "Unknown"),
+                            "to_grade": row.get("ToGrade", ""),
+                            "from_grade": row.get("FromGrade", ""),
+                            "action": row.get("Action", ""),
+                        })
+            except Exception as e:
+                print(f"Error fetching upgrades/downgrades for {symbol}: {e}")
+
+            return result
+
+        except Exception as e:
+            print(f"Error fetching analyst details for {symbol}: {e}")
+            return result

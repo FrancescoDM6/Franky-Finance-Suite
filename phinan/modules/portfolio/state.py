@@ -9,12 +9,13 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
+from pydantic import BaseModel
 import reflex as rx
 
 from ...services import services
 
 
-class PortfolioPosition(rx.Base):
+class PortfolioPosition(BaseModel):
     """A single portfolio position."""
     id: int = 0
     ticker_symbol: str = ""
@@ -96,6 +97,22 @@ class PortfolioState(rx.State):
         else:
             self.form_ticker = option
         self.show_autocomplete = False
+
+    def set_form_quantity(self, value: str):
+        """Set form quantity."""
+        self.form_quantity = value
+
+    def set_form_cost_basis(self, value: str):
+        """Set form cost basis."""
+        self.form_cost_basis = value
+
+    def set_form_purchase_date(self, value: str):
+        """Set form purchase date."""
+        self.form_purchase_date = value
+
+    def set_form_notes(self, value: str):
+        """Set form notes."""
+        self.form_notes = value
     
     # Summary computed values
     @rx.var
@@ -119,7 +136,18 @@ class PortfolioState(rx.State):
         if self.total_cost == 0:
             return 0.0
         return (self.total_gain_loss / self.total_cost) * 100
-    
+
+    @rx.var
+    def fmt_total_value(self) -> str:
+        """Formatted total portfolio value with commas."""
+        return f"${self.total_value:,.0f}"
+
+    @rx.var
+    def fmt_total_pl_pct(self) -> str:
+        """Formatted P/L percentage with sign."""
+        sign = "+" if self.total_gain_loss_percent >= 0 else ""
+        return f"{sign}{self.total_gain_loss_percent:.1f}%"
+
     @rx.var
     def has_positions(self) -> bool:
         """Whether user has any positions."""
@@ -263,3 +291,45 @@ class PortfolioState(rx.State):
     def position_tickers(self) -> list[str]:
         """List of tickers in portfolio (for quick lookup)."""
         return [p.ticker_symbol for p in self.positions]
+
+    @rx.var
+    def top_gainers(self) -> list[dict]:
+        """Top 3 positions by gain % (for daily brief)."""
+        if not self.positions:
+            return []
+        sorted_pos = sorted(
+            self.positions,
+            key=lambda p: p.gain_loss_percent,
+            reverse=True
+        )
+        return [
+            {"symbol": p.ticker_symbol, "change_pct": p.gain_loss_percent}
+            for p in sorted_pos[:3]
+        ]
+
+    @rx.var
+    def top_losers(self) -> list[dict]:
+        """Bottom 3 positions by gain % (for daily brief)."""
+        if not self.positions:
+            return []
+        sorted_pos = sorted(
+            self.positions,
+            key=lambda p: p.gain_loss_percent
+        )
+        return [
+            {"symbol": p.ticker_symbol, "change_pct": p.gain_loss_percent}
+            for p in sorted_pos[:3]
+        ]
+
+    @rx.var
+    def portfolio_summary_for_brief(self) -> dict:
+        """Summary dict for daily brief prompt."""
+        return {
+            "total_value": self.total_value,
+            "total_cost": self.total_cost,
+            "total_pl": self.total_gain_loss,
+            "total_pl_pct": self.total_gain_loss_percent,
+            "position_count": len(self.positions),
+            "top_gainers": self.top_gainers,
+            "top_losers": self.top_losers,
+        }

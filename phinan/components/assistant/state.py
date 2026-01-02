@@ -4,8 +4,17 @@ The assistant is the primary interface - it maintains conversation context
 and can invoke tools from all modules.
 """
 
+import asyncio
 import reflex as rx
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+
+# Shared executor for blocking LLM calls - prevents event loop blocking
+# Using max_workers=4 to allow concurrent LLM requests without overwhelming resources
+_llm_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="llm_worker")
+
+# Timeout for LLM calls in seconds
+LLM_TIMEOUT_SECONDS = 120
 
 
 class AssistantState(rx.State):
@@ -84,16 +93,27 @@ class AssistantState(rx.State):
 
             # Build system prompt with user context
             system_prompt = await self._build_system_prompt()
-            
+
             print(f"--- Sending to LLM ---\nMessages: {len(self.messages)}")
 
-            # Get response from LLM
-            response = services.llm.chat(
-                messages=self.messages,
-                system=system_prompt,
-                tools=self._get_tool_definitions(),
-            )
-            
+            # Run LLM call in thread pool to avoid blocking the event loop
+            # This prevents UI freezes during LLM requests (10-60+ seconds)
+            loop = asyncio.get_event_loop()
+            try:
+                response = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        _llm_executor,
+                        lambda: services.llm.chat(
+                            messages=self.messages,
+                            system=system_prompt,
+                            tools=self._get_tool_definitions(),
+                        )
+                    ),
+                    timeout=LLM_TIMEOUT_SECONDS
+                )
+            except asyncio.TimeoutError:
+                raise TimeoutError(f"LLM request timed out after {LLM_TIMEOUT_SECONDS} seconds")
+
             print(f"--- LLM Response ---\n{response}")
 
             # Add assistant response - handle None content from Gemini tool calls
@@ -339,40 +359,51 @@ Just ask me to "Research AAPL" or "Add NVDA to my watchlist"!"""
             "get_capabilities": self._tool_get_capabilities,
         }
 
-    async def _execute_tools(self, tool_calls: list) -> str:
-        """Execute tool calls and return formatted results."""
-        results = []
+    async def _execute_single_tool(self, call: dict) -> str:
+        """Execute a single tool call and return result."""
+        import json as json_module
 
-        for call in tool_calls:
-            func = call.get("function", {})
-            name = func.get("name")
-            args = func.get("arguments", {})
+        func = call.get("function", {})
+        name = func.get("name")
+        args = func.get("arguments", {})
 
-            if isinstance(args, str):
-                import json
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError:
-                    results.append(f"Error parsing arguments for {name}")
-                    continue
-
+        if isinstance(args, str):
             try:
-                if name in self._tool_registry:
-                    tool_func = self._tool_registry[name]
-                    # Check if tool function is async
-                    import inspect
-                    if inspect.iscoroutinefunction(tool_func):
-                        result = await tool_func(args)
-                    else:
-                        result = await tool_func(args) # Fallback if not async defined but called async, though here all are async
-                    results.append(result)
-                else:
-                    results.append(f"Unknown tool: {name}")
+                args = json_module.loads(args)
+            except json_module.JSONDecodeError:
+                return f"Error parsing arguments for {name}"
 
-            except Exception as e:
-                results.append(f"Error executing {name}: {str(e)}")
+        try:
+            if name in self._tool_registry:
+                tool_func = self._tool_registry[name]
+                return await tool_func(args)
+            else:
+                return f"Unknown tool: {name}"
+        except Exception as e:
+            return f"Error executing {name}: {str(e)}"
 
-        return "\n\n".join(results)
+    async def _execute_tools(self, tool_calls: list) -> str:
+        """Execute tool calls in parallel and return formatted results.
+
+        Uses asyncio.gather for concurrent execution of independent tools,
+        improving response time when multiple tools are called.
+        """
+        if not tool_calls:
+            return ""
+
+        # Execute all tools concurrently
+        tasks = [self._execute_single_tool(call) for call in tool_calls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Format results, handling any exceptions
+        formatted = []
+        for result in results:
+            if isinstance(result, Exception):
+                formatted.append(f"Tool error: {str(result)}")
+            else:
+                formatted.append(result)
+
+        return "\n\n".join(formatted)
 
     def _save_message(self, role: str, content: str):
         """Save message to database."""

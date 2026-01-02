@@ -8,7 +8,14 @@ from ..state.user_context import UserContextState
 
 def nav_item(label: str, icon: str, route: str, page_id: str) -> rx.Component:
     """Single navigation item."""
-    is_active = AppState.current_page == page_id
+    # Use router path directly for active state detection
+    # For home ("/"), exact match; for others, check if path starts with route
+    current_path = rx.State.router.page.path
+    is_active = rx.cond(
+        route == "/",
+        current_path == "/",
+        current_path.contains(route),
+    )
 
     return rx.link(
         rx.hstack(
@@ -30,6 +37,8 @@ def nav_item(label: str, icon: str, route: str, page_id: str) -> rx.Component:
 
 def watchlist_section() -> rx.Component:
     """Watchlist display in sidebar."""
+    from ..modules.research.state import ResearchState
+
     return rx.box(
         rx.vstack(
             rx.hstack(
@@ -48,7 +57,14 @@ def watchlist_section() -> rx.Component:
                     rx.foreach(
                         UserContextState.watchlist,
                         lambda symbol: rx.hstack(
-                            rx.text(symbol, size="1", weight="medium"),
+                            rx.text(
+                                symbol, 
+                                size="1", 
+                                weight="medium",
+                                cursor="pointer",
+                                _hover={"color": "var(--accent-9)"},
+                                on_click=lambda: ResearchState.search_ticker(symbol),
+                            ),
                             rx.spacer(),
                             rx.button(
                                 rx.icon("x", size=12),
@@ -80,6 +96,7 @@ def positions_section() -> rx.Component:
     """Portfolio positions display in sidebar."""
     # Import here to avoid circular import
     from ..modules.portfolio.state import PortfolioState
+    from ..modules.research.state import ResearchState
     
     return rx.box(
         rx.vstack(
@@ -100,11 +117,13 @@ def positions_section() -> rx.Component:
                     rx.foreach(
                         PortfolioState.positions,
                         lambda pos: rx.hstack(
-                            rx.link(
-                                rx.text(pos.ticker_symbol, size="1", weight="medium"),
-                                href=f"/research?ticker={pos.ticker_symbol}",
-                                underline="none",
-                                _hover={"color": "var(--accent-11)"},
+                            rx.text(
+                                pos.ticker_symbol, 
+                                size="1", 
+                                weight="medium",
+                                cursor="pointer",
+                                _hover={"color": "var(--accent-9)"},
+                                on_click=lambda: ResearchState.search_ticker(pos.ticker_symbol),
                             ),
                             rx.spacer(),
                             rx.text(
@@ -159,11 +178,11 @@ def sidebar_footer() -> rx.Component:
             rx.tooltip(
                 rx.icon_button(
                     rx.cond(
-                        AppState.dark_mode,
+                        rx.color_mode == "dark",
                         rx.icon("sun", size=18),
                         rx.icon("moon", size=18),
                     ),
-                    on_click=AppState.toggle_dark_mode,
+                    on_click=rx.toggle_color_mode,
                     variant="soft",
                     color_scheme="gray",
                     size="2",
@@ -175,6 +194,7 @@ def sidebar_footer() -> rx.Component:
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("settings", size=18),
+                    on_click=rx.redirect("/settings"),
                     variant="soft",
                     color_scheme="gray",
                     size="2",

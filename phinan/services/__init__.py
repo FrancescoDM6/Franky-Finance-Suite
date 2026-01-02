@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from .sentiment import SentimentService
     from .volatility import VolatilityService
     from .embeddings import EmbeddingService
+    from .synthesis import SynthesisService
     from ..core.database import DatabaseManager
 
 
@@ -72,6 +73,13 @@ class ServiceRegistry:
         from .embeddings import EmbeddingService
 
         return EmbeddingService()
+
+    @cached_property
+    def synthesis(self) -> "SynthesisService":
+        """Synthesis service (LLM-powered analysis generation)."""
+        from .synthesis import SynthesisService
+
+        return SynthesisService()
 
     def health_check(self) -> dict[str, bool]:
         """Check health of all services."""

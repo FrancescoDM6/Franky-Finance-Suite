@@ -5,11 +5,13 @@ reflex>=0.6.0
 duckdb>=0.10.0
 
 # AI/ML Services
-ollama>=0.1.0  # Ollama Python client
-transformers>=4.36.0  # For FinBERT and sentence-transformers
-sentence-transformers>=2.2.0
+ollama>=0.1.0  # Ollama Python client (local LLM)
+google-genai>=1.0.0  # Google Gemini API
+transformers>=4.36.0  # For FinBERT sentiment
+sentence-transformers>=2.2.0  # For embeddings
 torch>=2.0.0  # Required by transformers
 arch>=6.0.0  # GARCH volatility modeling
+scipy>=1.10.0  # Required by volatility service
 
 # Market Data
 yfinance>=0.2.35
@@ -17,10 +19,8 @@ yfinance>=0.2.35
 # Configuration
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
-python-dotenv>=1.0.0
 
-# Utilities
-requests>=2.31.0
+# Data Processing
 pandas>=2.0.0
 numpy>=1.24.0
 
@@ -28,4 +28,4 @@ numpy>=1.24.0
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 black>=23.0.0
-ruff>=0.1.0
+ruff>=0.4.0

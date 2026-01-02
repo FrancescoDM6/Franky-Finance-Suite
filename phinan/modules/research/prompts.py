@@ -16,16 +16,34 @@ Quality Assessment: {quality_overall}
 Quality Flags: {quality_flags}
 
 Recent News Sentiment: {news_sentiment}
+
+Available Options Chain Data:
+{options_context}
+
+IMPORTANT: When recommending specific options trades, use the EXACT expiration dates shown above (e.g., "{expiration_date}"). Do not invent or modify dates.
 {portfolio_context}
 User Profile:
 - Strategy: {profile_description}
 - Typical timeframe: {timeframe}
 - Default range: {default_range}
 
-Provide a 2-3 sentence summary focusing on:
-1. Current positioning (where in range, momentum direction)
-2. Quality assessment for their strategy
-3. One specific actionable opportunity for their trading style
+Respond in this exact markdown format:
+
+## Executive Summary
+[2-3 sentences on overall thesis - is this a buy, hold, or avoid? What's the main story?]
+
+## Bull Case
+- [Key bullish factor 1]
+- [Key bullish factor 2]
+
+## Bear Case
+- [Key bearish factor 1]
+- [Key bearish factor 2]
+
+## Actionable Plan
+For {strategy_type}'s {timeframe} timeframe:
+1. **Primary trade:** [Specific action - be direct about direction and timing]
+2. **Alternative:** [Backup approach if primary doesn't work out]
 {portfolio_guidance}
 Be direct and specific with strikes and timeframes that match the user's style.
 """
@@ -87,6 +105,8 @@ def build_analysis_prompt(
     timeframe: str,
     default_range: str,
     portfolio_position: dict = None,
+    options_summary: str = "",
+    options_expiration: str = "",
 ) -> str:
     """Build the strategy analysis prompt with all data filled in.
     
@@ -116,20 +136,22 @@ User's Position:
         ticker=ticker,
         strategy_type=profile_name,
         company_name=ticker_info.get("name", "Unknown"),
-        current_price=ticker_info.get("current_price", 0),
+        current_price=f"{ticker_info.get('current_price', 0):.2f}",
         range_position=_get_range_position_label(price_range.get("percent_of_range", 0.5)),
         range_percent=int(price_range.get("percent_of_range", 0.5) * 100),
         range_period=price_range.get("period", "3mo"),
         analyst_rating=analyst_data.get("rating", "N/A"),
-        target_price=analyst_data.get("target_price", 0),
+        target_price=f"{analyst_data.get('target_price', 0):.2f}",
         quality_overall=quality_check.get("overall", "N/A"),
-        quality_flags=", ".join(quality_check.get("flags", [])) or "None",
+        quality_flags=", ".join(quality_check.get("flags", [])),
         news_sentiment=news_sentiment,
         portfolio_context=portfolio_context,
         profile_description=profile_description,
         timeframe=timeframe,
         default_range=default_range,
         portfolio_guidance=portfolio_guidance,
+        options_context=options_summary or "No options data available.",
+        expiration_date=options_expiration or "the date shown",
     )
 
 
