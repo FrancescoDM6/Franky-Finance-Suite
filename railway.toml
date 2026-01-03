@@ -1,0 +1,10 @@
+[build]
+builder = "docker"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "reflex run --env prod --backend-host 0.0.0.0"
+healthcheckPath = "/_health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

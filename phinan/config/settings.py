@@ -16,8 +16,8 @@ class DatabaseSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PHINAN_DATABASE_")
 
     path: str = Field(
-        default="~/.phinan/phinan.duckdb",
-        description="Path to DuckDB database file",
+        default="./data/phinan.duckdb",
+        description="Path to DuckDB database file. Use /data/phinan.duckdb for Railway with volume mount.",
     )
 
     @property
