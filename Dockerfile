@@ -23,9 +23,8 @@ RUN pip install --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Initialize Reflex and build frontend
-RUN reflex init && \
-    reflex export --frontend-only --no-zip
+# Initialize Reflex only (frontend built at runtime to pick up API_URL)
+RUN reflex init
 
 #######################################
 # FINAL STAGE
