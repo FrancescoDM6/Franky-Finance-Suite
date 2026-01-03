@@ -6,8 +6,12 @@ This ensures migrations run as an explicit deployment step,
 not implicitly during request handling.
 """
 
+import os
 import subprocess
 import sys
+
+# Add the app directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def run_migrations():
