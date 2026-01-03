@@ -50,7 +50,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1 \
     MALLOC_ARENA_MAX=2 \
     PYTHONMALLOC=malloc \
-    PHINAN_DATABASE__PATH=/data/phinan.duckdb
+    PHINAN_DATABASE__PATH=/data/phinan.duckdb \
+    # Limit thread spawning for NumPy/OpenBLAS/MKL (Railway has process limits)
+    OPENBLAS_NUM_THREADS=2 \
+    MKL_NUM_THREADS=2 \
+    OMP_NUM_THREADS=2 \
+    NUMEXPR_NUM_THREADS=2
 
 # Build argument for runtime API URL
 ARG API_URL
