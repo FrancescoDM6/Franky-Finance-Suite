@@ -1,28 +1,38 @@
 :{$PORT}
 
+log {
+	output stdout
+    level INFO
+}
+
 encode gzip
 
-# Backend routes - proxy to Uvicorn
-@backend path /_event/* /ping /_upload /_upload/*
-handle @backend {
-    reverse_proxy 127.0.0.1:8000
-}
+route {
+	# Backend routes - specific paths first
+	handle /_event/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle /ping {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle /_upload/* {
+		reverse_proxy 127.0.0.1:8000
+	}
 
-# Health check endpoints - proxy to FastAPI
-@health path /health /health/*
-handle @health {
-    reverse_proxy 127.0.0.1:8000
-}
+	# Health check endpoints
+	handle /health/* {
+		reverse_proxy 127.0.0.1:8000
+	}
 
-# API routes - proxy to FastAPI
-@api path /api/*
-handle @api {
-    reverse_proxy 127.0.0.1:8000
-}
+	# API routes
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
 
-# Static files - serve pre-built frontend (SPA fallback to index.html)
-handle {
-    root * /srv
-    try_files {path} {path}/ /index.html
-    file_server
+	# Fallback: Static files
+	handle {
+		root * /srv
+		try_files {path} {path}/ /index.html
+		file_server
+	}
 }
