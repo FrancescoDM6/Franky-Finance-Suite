@@ -41,12 +41,17 @@ RUN reflex init && reflex export --frontend-only --no-zip && \
 #######################################
 FROM python:3.11-slim
 
+# Build argument for API URL (needed at runtime for backend config)
+ARG API_URL
+
 # Runtime environment with memory optimization
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     MALLOC_ARENA_MAX=2 \
-    PYTHONMALLOC=malloc
+    PYTHONMALLOC=malloc \
+    API_URL=${API_URL} \
+    PHINAN_DATABASE__PATH=/data/phinan.duckdb
 
 # Install Caddy (for reverse proxy) and minimal runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -57,7 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Create data directory for DuckDB
-RUN mkdir -p /app/data /srv
+RUN mkdir -p /app/data /data /srv
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
@@ -72,9 +77,12 @@ COPY --from=builder /app /app
 # Copy Caddyfile
 COPY Caddyfile /etc/caddy/Caddyfile
 
+# Copy entrypoint script
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Expose the single port (Caddy handles routing)
 EXPOSE 8080
 
-# Start Caddy and backend-only (NO runtime compilation!)
-CMD caddy start --config /etc/caddy/Caddyfile && \
-    python scripts/start.py
+# Start Caddy and backend with supervision
+CMD ["/usr/local/bin/entrypoint.sh"]

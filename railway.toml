@@ -6,7 +6,7 @@ dockerfilePath = "Dockerfile"
 API_URL = "https://phinan-finance-suite-production.up.railway.app"
 
 [deploy]
-healthcheckPath = "/health/live"
+healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
