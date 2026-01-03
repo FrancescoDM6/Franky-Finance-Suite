@@ -1,17 +1,20 @@
+# Phinan Finance Suite - Production Requirements
+# Cloud-friendly (no CUDA, minimal ML)
+
 # Core Framework
-reflex>=0.6.0
+reflex>=0.8.0
+reflex-hosting-cli>=0.1.0
+fastapi>=0.115.0
+starlette>=0.40.0
 
 # Database
 duckdb>=0.10.0
+SQLAlchemy>=2.0.0
+sqlmodel>=0.0.31
 
-# AI/ML Services
-ollama>=0.1.0  # Ollama Python client (local LLM)
-google-genai>=1.0.0  # Google Gemini API
-transformers>=4.36.0  # For FinBERT sentiment
-sentence-transformers>=2.2.0  # For embeddings
-torch>=2.0.0  # Required by transformers
-arch>=6.0.0  # GARCH volatility modeling
-scipy>=1.10.0  # Required by volatility service
+# AI/LLM
+google-genai>=1.0.0
+google-generativeai>=0.8.0
 
 # Market Data
 yfinance>=0.2.35
@@ -19,13 +22,25 @@ yfinance>=0.2.35
 # Configuration
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
 
 # Data Processing
 pandas>=2.0.0
-numpy>=1.24.0
+numpy>=2.0.0
+scipy>=1.10.0
 
-# Development
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-ruff>=0.4.0
+# Visualization
+plotly>=6.0.0
+kaleido>=1.0.0
+
+# Web/API utilities
+httpx>=0.28.0
+beautifulsoup4>=4.13.0
+requests>=2.32.0
+aiohttp>=3.9.0
+
+# Required by reflex
+orjson>=3.10.0
+python-multipart>=0.0.9
+websockets>=12.0
+uvicorn>=0.30.0
