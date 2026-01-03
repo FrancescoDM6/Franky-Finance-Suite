@@ -80,9 +80,9 @@ COPY --from=builder /app /app
 # Copy Caddyfile
 COPY Caddyfile /etc/caddy/Caddyfile
 
-# Copy entrypoint script
+# Copy entrypoint script and fix Windows line endings (CRLF -> LF)
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 # Expose the single port (Caddy handles routing)
 EXPOSE 8080
