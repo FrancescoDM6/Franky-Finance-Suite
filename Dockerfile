@@ -39,11 +39,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup --system app && adduser --system --ingroup app app
+# Create non-root user with home directory
+RUN addgroup --system app && adduser --system --home /home/app --ingroup app app
 
-# Create data directory for DuckDB
-RUN mkdir -p /app/data && chown -R app:app /app/data
+# Create data directory for DuckDB and Reflex cache
+RUN mkdir -p /app/data /home/app/.local/share/reflex && \
+    chown -R app:app /app/data /home/app
+
+# Set HOME for Reflex to find writable directory
+ENV HOME=/home/app
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
