@@ -31,6 +31,7 @@ class StructuredNote(BaseModel):
     currency: str = "USD"
     notional_amount: float = 1000.0
     capital_protection: float = Field(0.0, description="Capital protection % (0-100)")
+    strike_price: Optional[float] = Field(None, description="Strike price as % of initial fixing")
     
     # Coupon Details
     coupon_rate_pa: float = Field(..., description="Annualized coupon rate in %")

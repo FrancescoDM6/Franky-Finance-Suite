@@ -10,7 +10,7 @@ from datetime import date, datetime
 
 import pypdf
 from ..models.structured_note import StructuredNote, ObservationDate
-from .settings import settings  # Ensure settings access for LLM keys
+from ..config.settings import settings  # Ensure settings access for LLM keys
 
 class PDFParserService:
     """Service to handle PDF ingestion and parsing."""
