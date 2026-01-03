@@ -3,20 +3,26 @@
 encode gzip
 
 # Backend routes - proxy to Uvicorn
-@backend_routes path /_event/* /ping /_upload /_upload/*
-handle @backend_routes {
+@backend path /_event/* /ping /_upload /_upload/*
+handle @backend {
     reverse_proxy localhost:8000
 }
 
 # Health check endpoints - proxy to FastAPI
-@health_routes path /health /health/*
-handle @health_routes {
+@health path /health /health/*
+handle @health {
     reverse_proxy localhost:8000
 }
 
-# Static files - serve pre-built frontend
-root * /srv
-route {
-    try_files {path} {path}/ /404.html
+# API routes - proxy to FastAPI
+@api path /api/*
+handle @api {
+    reverse_proxy localhost:8000
+}
+
+# Static files - serve pre-built frontend (SPA fallback to index.html)
+handle {
+    root * /srv
+    try_files {path} {path}/ /index.html
     file_server
 }
