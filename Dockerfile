@@ -1,14 +1,12 @@
 # Phinan Finance Suite - Production Dockerfile
-FROM python:3.11-slim
+# Multi-stage build for smaller, more secure image
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONFAULTHANDLER=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+#######################################
+# BUILDER STAGE
+#######################################
+FROM python:3.11-slim AS builder
 
-# Install system dependencies
+# Install build-time dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -17,32 +15,48 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Create a non-root user and group
-RUN addgroup --system app && adduser --system --ingroup app app
-
-# Create data directory for DuckDB and set permissions
-RUN mkdir -p /app/data && chown -R app:app /app/data
-
-# Copy requirements first to leverage Docker cache
-COPY --chown=app:app requirements.txt .
-
-# Install dependencies (as root for system-wide install)
+# Install Python dependencies
+COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Copy the rest of the application
-COPY --chown=app:app . .
+# Copy application code
+COPY . .
 
-# Initialize Reflex and build frontend (needs write access to .web)
+# Initialize Reflex and build frontend
 RUN reflex init && \
-    reflex export --frontend-only --no-zip && \
-    chown -R app:app /app
+    reflex export --frontend-only --no-zip
+
+#######################################
+# FINAL STAGE
+#######################################
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system app && adduser --system --ingroup app app
+
+# Create data directory for DuckDB
+RUN mkdir -p /app/data && chown -R app:app /app/data
+
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code and built frontend
+COPY --from=builder --chown=app:app /app /app
 
 # Switch to non-root user
 USER app
 
-# Expose the ports
+# Expose ports
 EXPOSE 3000 8000
 
-# Run migrations and start the application
+# Run migrations and start application
 CMD ["python", "scripts/start.py"]
