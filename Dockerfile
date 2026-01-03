@@ -29,7 +29,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Initialize Reflex and PRE-BUILD frontend (memory-intensive, but only at build time)
-RUN reflex init && reflex export --frontend-only --no-zip
+RUN reflex init && reflex export --frontend-only --no-zip && \
+    echo "=== Checking export output ===" && \
+    ls -la .web/ && \
+    ls -la .web/build/ 2>/dev/null || echo "No .web/build/" && \
+    ls -la .web/build/client/ 2>/dev/null || echo "No .web/build/client/" && \
+    ls -la .web/_static/ 2>/dev/null || echo "No .web/_static/"
 
 #######################################
 # FINAL STAGE - Minimal runtime

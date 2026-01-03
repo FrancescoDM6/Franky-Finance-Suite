@@ -17,7 +17,7 @@ handle @health {
 # API routes - proxy to FastAPI
 @api path /api/*
 handle @api {
-    reverse_proxy localhost:8000
+    reverse_proxy 127.0.0.1:8000
 }
 
 # Static files - serve pre-built frontend (SPA fallback to index.html)

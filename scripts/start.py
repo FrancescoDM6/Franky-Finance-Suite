@@ -36,6 +36,8 @@ def start_reflex():
     """
     # Backend always runs on 8000, Caddy proxies from PORT
     print("Starting Reflex backend on port 8000...")
+    print("DEBUG: Checking /srv contents:")
+    subprocess.run(["ls", "-R", "/srv"], check=False)
 
     cmd = [
         "uvicorn",
