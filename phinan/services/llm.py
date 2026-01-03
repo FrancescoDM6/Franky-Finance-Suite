@@ -7,7 +7,9 @@ Design principles:
 Pattern: "LLM extracts, Python calculates"
 """
 
+from datetime import date, datetime
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 from ..config.settings import settings
 
@@ -31,6 +33,7 @@ class LLMService:
         self._ollama_base_url = settings.ollama.base_url
         # Track models that have exhausted daily quotas (resets at midnight PT)
         self._daily_exhausted_models: set[str] = set()
+        self._daily_exhausted_at: Optional[date] = None
 
     def _get_gemini_client(self):
         """Lazy-load Gemini client (new SDK)."""
@@ -113,7 +116,12 @@ class LLMService:
         # Remove duplicates while preserving order
         seen = set()
         gemini_models = [m for m in gemini_models if not (m in seen or seen.add(m))]
-        
+
+        current_pt_date = datetime.now(ZoneInfo("America/Los_Angeles")).date()
+        if self._daily_exhausted_at != current_pt_date:
+            self._daily_exhausted_models.clear()
+            self._daily_exhausted_at = current_pt_date
+
         # Filter out daily-exhausted models
         available_models = [m for m in gemini_models if m not in self._daily_exhausted_models]
         
