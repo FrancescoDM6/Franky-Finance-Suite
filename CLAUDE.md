@@ -70,7 +70,17 @@ reflex run --env prod
 
 # Run database migrations
 python migrations/migration_runner.py
+
+# Deploy to Railway (Production)
+# This uses a custom Caddy+Uvicorn setup. Do NOT use `reflex run` in production.
+# See README.md for details.
 ```
+
+## Deployment Architecture (Railway)
+- **Frontend**: Served by Caddy (Reverse Proxy + Static Files) at `$PORT`
+- **Backend**: Served by Uvicorn at `127.0.0.1:8000` (Direct execution, no Reflex wrapper)
+- **State**: Redis (Persistent)
+- **Memory**: Optimized by skipping runtime frontend compilation
 
 ## Project Structure
 

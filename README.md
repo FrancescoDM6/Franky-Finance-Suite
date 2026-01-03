@@ -379,9 +379,24 @@ Profiles affect:
    - Portfolio performance summary
 
 3. **Deployment:**
-   - Vercel compatibility
-   - Production configuration
-   - Environment-specific optimizations
+   - **Platform:** Railway
+   - **Architecture:** Docker (Split Frontend/Backend with Caddy)
+   - **State Management:** Redis (Persistent)
+
+## Production Configuration
+
+The project is optimized for deployment on Railway:
+
+### Environment Variables
+- `API_URL`: Public URL of your Railway app (e.g., `https://yourapp.up.railway.app`)
+- `REDIS_URL`: Connection string for Redis service
+- `REFLEX_ENV`: Set to `prod` automatically by setup
+
+### Docker Optimization
+1.  **Build Stage:** Compiles frontend assets (`reflex export`).
+2.  **Runtime:** 
+    - Runs `caddy` to serve the static frontend and proxy API requests.
+    - Runs `uvicorn` directly for the backend (skipping runtime compilation).
 
 ## Troubleshooting
 
