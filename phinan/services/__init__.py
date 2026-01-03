@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from .volatility import VolatilityService
     from .embeddings import EmbeddingService
     from .synthesis import SynthesisService
+    from .pdf_parser import PDFParserService
+    from .structured_products import StructuredProductService
     from ..core.database import DatabaseManager
 
 
@@ -88,6 +90,18 @@ class ServiceRegistry:
             "llm": self.llm.health_check(),
             "market_data": self.market_data.health_check(),
         }
+
+    @cached_property
+    def pdf_parser(self) -> "PDFParserService":
+        """PDF parsing service for structured notes."""
+        from .pdf_parser import PDFParserService
+        return PDFParserService()
+
+    @cached_property
+    def structured_products(self) -> "StructuredProductService":
+        """Structured product valuation service."""
+        from .structured_products import StructuredProductService
+        return StructuredProductService()
 
 
 # Global service registry instance

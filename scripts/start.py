@@ -10,9 +10,21 @@ import os
 import subprocess
 import sys
 import time
+import gc
 
 # Add the app directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def log_memory_usage(label: str):
+    """Log current memory usage for debugging."""
+    try:
+        import resource
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        rss_mb = usage.ru_maxrss / 1024  # Convert to MB (Linux returns KB)
+        print(f"[MEMORY] {label}: {rss_mb:.1f} MB RSS")
+    except Exception as e:
+        print(f"[MEMORY] {label}: Unable to read ({e})")
 
 
 def wait_for_private_network():
@@ -103,7 +115,19 @@ def start_reflex():
 
 
 if __name__ == "__main__":
+    log_memory_usage("startup_begin")
+    gc.collect()  # Clean up any startup garbage
+
     wait_for_private_network()
+    log_memory_usage("after_network_wait")
+
     test_redis_connection()
+    log_memory_usage("after_redis_test")
+
     run_migrations()
+    log_memory_usage("after_migrations")
+
+    gc.collect()  # Force GC before starting Reflex
+    log_memory_usage("before_reflex_start")
+
     start_reflex()

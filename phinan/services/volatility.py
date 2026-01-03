@@ -4,10 +4,13 @@ Use for: forecasting future volatility, improving range estimates,
 assessing if options are cheap/expensive relative to expected vol.
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 
-import numpy as np
-import pandas as pd
+# Lazy imports for heavy dependencies (numpy, pandas, scipy)
+# These are only loaded when the service is actually used
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
 
 from ..config.settings import settings
 from ..models.volatility import GARCHForecast, ExpectedRange, VolatilityComparison
@@ -47,6 +50,7 @@ class VolatilityService:
             return {"error": "Volatility service disabled", "enabled": False}
 
         try:
+            import numpy as np
             from arch import arch_model
 
             # Fit GARCH(1,1) model
@@ -97,6 +101,7 @@ class VolatilityService:
             return forecast
 
         try:
+            import numpy as np
             from scipy import stats
 
             # Get forecast volatility (average over horizon)
