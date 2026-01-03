@@ -43,7 +43,11 @@ def start_reflex():
         "--host", "0.0.0.0",
         "--port", "8000",
     ]
-    subprocess.run(cmd, check=True)
+    # Force production mode to skip frontend compilation check
+    env = os.environ.copy()
+    env["REFLEX_ENV"] = "prod"
+    
+    subprocess.run(cmd, check=True, env=env)
 
 
 if __name__ == "__main__":
