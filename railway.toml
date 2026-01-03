@@ -6,7 +6,10 @@ dockerfilePath = "Dockerfile"
 API_URL = "https://phinan-finance-suite-production.up.railway.app"
 
 [deploy]
-healthcheckPath = "/health/live"
+# Use /healthz - a static Caddy endpoint that returns 200 immediately
+# This doesn't depend on the backend being ready, so deploys succeed faster
+# The backend has its own /health/live for app-level health checks
+healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

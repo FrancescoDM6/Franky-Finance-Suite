@@ -9,9 +9,37 @@ not implicitly during request handling.
 import os
 import subprocess
 import sys
+import time
 
 # Add the app directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def wait_for_private_network():
+    """Wait for Railway's private network DNS to initialize.
+
+    Railway's private network DNS resolver takes ~3 seconds to start.
+    This is required for Redis and other internal service connections.
+    """
+    print("Waiting for Railway private network DNS to initialize...")
+    time.sleep(3)
+    print("Private network should be ready.")
+
+
+def test_redis_connection():
+    """Test Redis connectivity (optional, for debugging)."""
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        try:
+            import redis
+            r = redis.from_url(redis_url)
+            r.ping()
+            print(f"Redis connected successfully at {redis_url[:30]}...")
+        except Exception as e:
+            print(f"Redis connection test failed: {e}")
+            print("Continuing anyway - Reflex will retry...")
+    else:
+        print("REDIS_URL not set - using disk state manager")
 
 
 def run_migrations():
@@ -31,7 +59,8 @@ def run_migrations():
 def start_reflex():
     """Start Reflex backend in production mode.
 
-    Uses --backend-only to skip frontend compilation (already pre-built).
+    Uses 'reflex run --backend-only' to properly start the Reflex ASGI app.
+    Direct uvicorn on rx.App() won't work - Reflex needs its runtime.
     Caddy serves static frontend and proxies backend routes.
     """
     # Debug: show what PORT Railway set
@@ -43,24 +72,38 @@ def start_reflex():
     # Backend always runs on 8000, Caddy proxies from PORT
     print("Starting Reflex backend on port 8000...")
     print("DEBUG: Checking /srv contents:")
-    subprocess.run(["ls", "/srv"], check=False)
+    subprocess.run(["ls", "-la", "/srv"], check=False)
 
-    cmd = [
-        "uvicorn",
-        "phinan.phinan:app",
-        "--host", "0.0.0.0",
-        "--port", "8000",
-    ]
-    # Skip compilation - frontend is pre-built, served by Caddy
+    # Set environment for production
     env = os.environ.copy()
     env["REFLEX_ENV"] = "prod"
+    # Tell Reflex to skip frontend compilation (already pre-built in Docker)
     env["__REFLEX_SKIP_COMPILE"] = "yes"
-    
-    print("DEBUG: Executing Uvicorn with env:", {k: v for k, v in env.items() if k in ["REFLEX_ENV", "PORT", "API_URL"]})
+    # Force backend port
+    env["REFLEX_BACKEND_PORT"] = "8000"
+
+    print("DEBUG: Environment:", {
+        k: v for k, v in env.items()
+        if k in ["REFLEX_ENV", "PORT", "API_URL", "REDIS_URL", "REFLEX_BACKEND_PORT"]
+    })
+
+    # Use reflex run --backend-only instead of direct uvicorn
+    # This properly initializes the Reflex runtime and creates the ASGI app
+    cmd = [
+        "reflex", "run",
+        "--backend-only",
+        "--env", "prod",
+        "--backend-port", "8000",
+        "--backend-host", "0.0.0.0",
+    ]
+
+    print(f"DEBUG: Executing command: {' '.join(cmd)}")
 
     subprocess.run(cmd, check=True, env=env)
 
 
 if __name__ == "__main__":
+    wait_for_private_network()
+    test_redis_connection()
     run_migrations()
     start_reflex()

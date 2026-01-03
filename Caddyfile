@@ -1,6 +1,6 @@
 :{$PORT}
 
-# Debug logging
+# Debug logging (can be reduced in production)
 log {
     output stdout
     level DEBUG
@@ -11,6 +11,7 @@ log {
 respond /caddy-test "Caddy OK" 200
 
 # Health check endpoint for Railway (bypasses backend to return 200 immediately)
+# This is what Railway uses for deploy health checks
 respond /healthz "OK" 200
 
 # Set root directory for all static files
@@ -19,11 +20,21 @@ root * /srv
 # Compression
 encode gzip
 
-# Backend routes - proxy to Uvicorn
+# Backend routes - proxy to Reflex backend
+# Includes WebSocket paths for Reflex real-time state sync
 @backend {
-    path /_event/* /ping /_upload/* /health/* /api/*
+    path /_event/* /ping /_upload/* /health/* /api/* /_ws/*
 }
-reverse_proxy @backend 127.0.0.1:8000
+reverse_proxy @backend 127.0.0.1:8000 {
+    # Low-latency mode for WebSocket/real-time Reflex updates
+    flush_interval -1
+
+    # Forward client info to backend
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+}
 
 # SPA fallback and static file serving
 try_files {path} /index.html

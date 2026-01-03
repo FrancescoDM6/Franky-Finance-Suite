@@ -76,6 +76,12 @@ class DatabaseManager:
         """
         if self._writer_conn is None:
             self._writer_conn = duckdb.connect(str(self._db_path))
+            # Configure memory limit for containerized environments
+            # DuckDB defaults to 80% of HOST RAM, not container limits
+            # This prevents OOMKilled errors in Docker/Railway
+            self._writer_conn.execute("SET memory_limit = '512MB'")
+            # Set threads to match container resources
+            self._writer_conn.execute("SET threads = 2")
         return self._writer_conn
 
     @contextmanager
