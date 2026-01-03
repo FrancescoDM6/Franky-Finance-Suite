@@ -27,8 +27,7 @@ COPY requirements.txt .
 
 # Install dependencies
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt && \
-    pip install fastapi uvicorn
+    pip install -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
@@ -44,6 +43,5 @@ RUN reflex export --frontend-only --no-zip
 # Reflex defaults: 3000 (frontend), 8000 (backend)
 EXPOSE 3000 8000
 
-# Run the application in production mode
-# This serves both frontend and backend
-CMD ["reflex", "run", "--env", "prod", "--backend-host", "0.0.0.0"]
+# Run migrations and start the application
+CMD ["python", "scripts/start.py"]

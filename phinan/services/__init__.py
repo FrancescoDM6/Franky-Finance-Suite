@@ -37,10 +37,7 @@ class ServiceRegistry:
         """Database service."""
         from ..core.database import get_database_manager
 
-        db_manager = get_database_manager()
-        # Auto-initialize schema on first access
-        db_manager.initialize_schema()
-        return db_manager
+        return get_database_manager()
 
     @cached_property
     def llm(self) -> "LLMService":
