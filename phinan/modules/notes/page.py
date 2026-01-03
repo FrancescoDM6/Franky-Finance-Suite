@@ -143,7 +143,7 @@ def note_details_card() -> rx.Component:
                 ),
                 rx.data_list.item(
                     rx.data_list.label("Underlying"),
-                    rx.data_list.value(", ".join(NoteState.parsed_note.underlying_tickers)), # Basic list to string
+                    rx.data_list.value(NoteState.parsed_note.underlying_tickers.join(", ")), # Use Reflex's .join() method for Var
                 ),
                  rx.data_list.item(
                     rx.data_list.label("Strike"),

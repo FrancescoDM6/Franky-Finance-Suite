@@ -120,3 +120,36 @@ class NoteState(rx.State):
         if not self.parsed_note:
             return ""
         return f"{self.parsed_note.issuer} {self.parsed_note.product_name} ({self.parsed_note.coupon_rate_pa}% p.a.)"
+
+    @rx.var
+    def underlying_tickers_display(self) -> str:
+        """Comma-separated list of underlying tickers."""
+        if not self.parsed_note:
+            return ""
+        return ", ".join(self.parsed_note.underlying_tickers)
+
+    @rx.var
+    def note_issuer(self) -> str:
+        return self.parsed_note.issuer if self.parsed_note else ""
+
+    @rx.var
+    def note_strike(self) -> str:
+        return f"{self.parsed_note.strike_price}%" if self.parsed_note else ""
+
+    @rx.var
+    def note_barrier(self) -> str:
+        if not self.parsed_note:
+            return ""
+        return f"{self.parsed_note.protection_barrier}% ({self.parsed_note.barrier_type})"
+
+    @rx.var
+    def note_coupon(self) -> str:
+        if not self.parsed_note:
+            return ""
+        return f"{self.parsed_note.coupon_rate_pa}% p.a. ({self.parsed_note.coupon_frequency})"
+
+    @rx.var
+    def note_autocall(self) -> str:
+        if not self.parsed_note:
+            return ""
+        return f"{self.parsed_note.autocall_barrier}%"

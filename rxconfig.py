@@ -9,7 +9,7 @@ redis_url = os.environ.get("REDIS_URL")
 
 config = rx.Config(
     app_name="phinan",
-    api_url=os.environ.get("API_URL"),
+    api_url=os.environ.get("API_URL", "http://localhost:8000"),
     title="Phinan Finance Suite",
     description="Personal finance app with AI assistant",
     plugins=[
