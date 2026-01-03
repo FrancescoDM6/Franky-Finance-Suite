@@ -44,18 +44,27 @@ FROM python:3.11-slim
 # Build argument for API URL (needed at runtime for backend config)
 ARG API_URL
 
-# Runtime environment with memory optimization
+# Runtime environment with aggressive memory optimization
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
+    # Memory allocator tuning
     MALLOC_ARENA_MAX=2 \
     PYTHONMALLOC=malloc \
+    MALLOC_TRIM_THRESHOLD_=131072 \
+    MALLOC_MMAP_THRESHOLD_=131072 \
+    # Database path
     PHINAN_DATABASE__PATH=/data/phinan.duckdb \
-    # Limit thread spawning for NumPy/OpenBLAS/MKL (Railway has process limits)
-    OPENBLAS_NUM_THREADS=2 \
-    MKL_NUM_THREADS=2 \
-    OMP_NUM_THREADS=2 \
-    NUMEXPR_NUM_THREADS=2
+    # Limit thread spawning for NumPy/OpenBLAS/MKL/SciPy (Railway has process limits)
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    VECLIB_MAXIMUM_THREADS=1 \
+    # Disable lazy imports that might trigger heavy loading
+    PHINAN_AI_SERVICES_ENABLE_SENTIMENT=false \
+    PHINAN_AI_SERVICES_ENABLE_VOLATILITY=false \
+    PHINAN_AI_SERVICES_ENABLE_EMBEDDINGS=false
 
 # Build argument for runtime API URL
 ARG API_URL
@@ -79,8 +88,14 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy pre-built static frontend CONTENTS to /srv (served by Caddy)
 COPY --from=builder /app/.web/build/client/ /srv/
 
-# Copy application code (without .web to save space)
-COPY --from=builder /app /app
+# Copy application code EXCLUDING .web (which is huge with node_modules)
+# The .web directory is not needed at runtime - Caddy serves static files from /srv
+COPY --from=builder /app/phinan /app/phinan
+COPY --from=builder /app/assets /app/assets
+COPY --from=builder /app/rxconfig.py /app/rxconfig.py
+COPY --from=builder /app/requirements.txt /app/requirements.txt
+COPY --from=builder /app/migrations /app/migrations
+COPY --from=builder /app/scripts /app/scripts
 
 # Copy Caddyfile
 COPY Caddyfile /etc/caddy/Caddyfile
