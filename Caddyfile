@@ -1,24 +1,20 @@
 :{$PORT}
 
-log {
-    output stdout
-    level DEBUG
-}
+encode gzip
 
-# Serve static files first
-file_server {
-    root /srv
-}
-
-# Then handle backend routes
-@backend {
+# API and dynamic routes - explicit handle blocks for clarity
+@dynamic {
     path /_event/* /ping /_upload/* /health/* /api/*
 }
-reverse_proxy @backend 127.0.0.1:8000
 
-# SPA fallback - rewrite unknown paths to index.html
-@notfound {
-    not file
-    not path /_event/* /ping /_upload/* /health/* /api/*
+handle @dynamic {
+    reverse_proxy 127.0.0.1:8000
 }
-rewrite @notfound /index.html
+
+# Static files (catch-all, must be last)
+# Serves from /srv, falls back to index.html for SPA routing
+handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+}
