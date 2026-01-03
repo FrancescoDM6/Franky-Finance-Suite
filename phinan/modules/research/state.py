@@ -10,7 +10,7 @@ from collections import OrderedDict
 import time
 import threading
 
-import numpy as np
+# numpy imported lazily in calculate_volatility() to reduce startup memory
 
 # Options cache TTL in seconds (5 minutes)
 OPTIONS_CACHE_TTL = 300
@@ -1379,7 +1379,8 @@ class ResearchState(rx.State):
                 self.volatility_available = False
                 return
 
-            # Calculate log returns
+            # Calculate log returns (lazy import to reduce startup memory)
+            import numpy as np
             close_prices = df["Close"]
             returns = np.log(close_prices / close_prices.shift(1)).dropna()
 
