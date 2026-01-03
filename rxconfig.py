@@ -19,4 +19,5 @@ config = rx.Config(
     # Use Redis for state management in production
     state_manager_mode="redis" if redis_url else "disk",
     redis_url=redis_url,
+    cors_allowed_origins=[os.environ.get("API_URL")] if os.environ.get("API_URL") else ["*"],
 )
