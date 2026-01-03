@@ -30,11 +30,15 @@ def run_migrations():
 
 def start_reflex():
     """Start Reflex in production mode."""
-    print("Starting Reflex application...")
+    # Railway injects PORT env var - app must listen on it
+    port = os.environ.get("PORT", "8000")
+    print(f"Starting Reflex application on port {port}...")
+
     cmd = [
         "reflex", "run",
         "--env", "prod",
-        "--backend-host", "0.0.0.0"
+        "--backend-host", "0.0.0.0",
+        "--backend-port", port,
     ]
     subprocess.run(cmd, check=True)
 
