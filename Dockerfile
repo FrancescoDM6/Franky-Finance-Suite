@@ -41,6 +41,9 @@ RUN reflex init && reflex export --frontend-only --no-zip && \
 #######################################
 FROM python:3.11-slim
 
+# Build argument for API URL (needed at runtime for backend config)
+ARG API_URL
+
 # Runtime environment with memory optimization
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -77,9 +80,12 @@ COPY --from=builder /app /app
 # Copy Caddyfile
 COPY Caddyfile /etc/caddy/Caddyfile
 
+# Copy entrypoint script
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Expose the single port (Caddy handles routing)
 EXPOSE 8080
 
-# Start Caddy and backend-only (NO runtime compilation!)
-CMD caddy start --config /etc/caddy/Caddyfile && \
-    python scripts/start.py
+# Start Caddy and backend with supervision
+CMD ["/usr/local/bin/entrypoint.sh"]
