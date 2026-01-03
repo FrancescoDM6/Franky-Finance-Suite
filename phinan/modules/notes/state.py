@@ -153,3 +153,24 @@ class NoteState(rx.State):
         if not self.parsed_note:
             return ""
         return f"{self.parsed_note.autocall_barrier}%"
+
+    @rx.var
+    def option_value_display(self) -> str:
+        """Option value percentage for display."""
+        if not self.valuation:
+            return "N/A"
+        return f"{self.valuation.option_value_pct * 100:.2f}%"
+
+    @rx.var
+    def fair_value_display(self) -> str:
+        """Fair value percentage for display."""
+        if not self.valuation:
+            return "N/A"
+        return f"{self.valuation.fair_value_pct * 100:.2f}%"
+
+    @rx.var
+    def implied_fee_display(self) -> str:
+        """Implied fee percentage for display."""
+        if not self.valuation:
+            return "N/A"
+        return f"{self.valuation.implied_fee_pct * 100:.2f}%"

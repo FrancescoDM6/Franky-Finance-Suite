@@ -93,7 +93,7 @@ def valuation_card() -> rx.Component:
                 rx.vstack(
                     rx.text("Option Risk", size="2", color_scheme="gray"),
                     rx.heading(
-                        f"{NoteState.valuation.option_value_pct * 100:.2f}%",
+                        NoteState.option_value_display,
                         size="5",
                         color_scheme="red",
                     ),
@@ -103,7 +103,7 @@ def valuation_card() -> rx.Component:
                 rx.vstack(
                     rx.text("Fair Value", size="2", color_scheme="gray"),
                     rx.heading(
-                        f"{NoteState.valuation.fair_value_pct * 100:.2f}%",
+                        NoteState.fair_value_display,
                         size="5",
                         color_scheme="blue",
                     ),
@@ -113,7 +113,7 @@ def valuation_card() -> rx.Component:
                 rx.vstack(
                     rx.text("Implied Fee", size="2", color_scheme="gray"),
                     rx.heading(
-                        f"{NoteState.valuation.implied_fee_pct * 100:.2f}%",
+                        NoteState.implied_fee_display,
                         size="5",
                         color_scheme=NoteState.implied_fee_color,
                     ),
@@ -139,27 +139,27 @@ def note_details_card() -> rx.Component:
             rx.data_list.root(
                 rx.data_list.item(
                     rx.data_list.label("Issuer"),
-                    rx.data_list.value(NoteState.parsed_note.issuer),
+                    rx.data_list.value(NoteState.note_issuer),
                 ),
                 rx.data_list.item(
                     rx.data_list.label("Underlying"),
-                    rx.data_list.value(NoteState.parsed_note.underlying_tickers.join(", ")), # Use Reflex's .join() method for Var
+                    rx.data_list.value(NoteState.underlying_tickers_display),
                 ),
                  rx.data_list.item(
                     rx.data_list.label("Strike"),
-                    rx.data_list.value(f"{NoteState.parsed_note.strike_price}%"),
+                    rx.data_list.value(NoteState.note_strike),
                 ),
                  rx.data_list.item(
                     rx.data_list.label("Barrier"),
-                    rx.data_list.value(f"{NoteState.parsed_note.protection_barrier}% ({NoteState.parsed_note.barrier_type})"),
+                    rx.data_list.value(NoteState.note_barrier),
                 ),
                 rx.data_list.item(
                     rx.data_list.label("Recieves Coupon"),
-                    rx.data_list.value(f"{NoteState.parsed_note.coupon_rate_pa}% p.a. ({NoteState.parsed_note.coupon_frequency})"),
+                    rx.data_list.value(NoteState.note_coupon),
                 ),
                 rx.data_list.item(
                     rx.data_list.label("Autocall Trigger"),
-                    rx.data_list.value(f"{NoteState.parsed_note.autocall_barrier}%"),
+                    rx.data_list.value(NoteState.note_autocall),
                 ),
             ),
             spacing="4",
