@@ -5,13 +5,13 @@ encode gzip
 # Backend routes - proxy to Uvicorn
 @backend path /_event/* /ping /_upload /_upload/*
 handle @backend {
-    reverse_proxy localhost:8000
+    reverse_proxy 127.0.0.1:8000
 }
 
 # Health check endpoints - proxy to FastAPI
 @health path /health /health/*
 handle @health {
-    reverse_proxy localhost:8000
+    reverse_proxy 127.0.0.1:8000
 }
 
 # API routes - proxy to FastAPI

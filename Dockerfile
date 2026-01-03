@@ -58,8 +58,8 @@ RUN mkdir -p /app/data /srv
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy pre-built static frontend to /srv (served by Caddy)
-COPY --from=builder /app/.web/build/client /srv
+# Copy pre-built static frontend CONTENTS to /srv (served by Caddy)
+COPY --from=builder /app/.web/build/client/ /srv/
 
 # Copy application code (without .web to save space)
 COPY --from=builder /app /app
