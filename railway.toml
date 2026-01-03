@@ -6,8 +6,7 @@ dockerfilePath = "Dockerfile"
 API_URL = "https://phinan-finance-suite-production.up.railway.app"
 
 [deploy]
-# Temporarily disabled health check to debug SIGKILL
-# healthcheckPath = "/health/live"
-# healthcheckTimeout = 300
+healthcheckPath = "/health/live"
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

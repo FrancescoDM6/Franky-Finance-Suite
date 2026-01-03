@@ -29,16 +29,20 @@ def run_migrations():
 
 
 def start_reflex():
-    """Start Reflex in production mode."""
-    # Railway injects PORT env var - app must listen on it
-    port = os.environ.get("PORT", "8000")
-    print(f"Starting Reflex application on port {port}...")
+    """Start Reflex backend in production mode.
+
+    Uses --backend-only to skip frontend compilation (already pre-built).
+    Caddy serves static frontend and proxies backend routes.
+    """
+    # Backend always runs on 8000, Caddy proxies from PORT
+    print("Starting Reflex backend on port 8000...")
 
     cmd = [
         "reflex", "run",
         "--env", "prod",
+        "--backend-only",
         "--backend-host", "0.0.0.0",
-        "--backend-port", port,
+        "--backend-port", "8000",
     ]
     subprocess.run(cmd, check=True)
 
