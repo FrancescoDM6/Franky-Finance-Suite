@@ -1,20 +1,15 @@
 :{$PORT}
 
+# Set root directory for all static files
+root * /srv
+
+# Compression
 encode gzip
 
-# API and dynamic routes - explicit handle blocks for clarity
-@dynamic {
-    path /_event/* /ping /_upload/* /health/* /api/*
-}
+# Backend routes - proxy to Uvicorn
+@backend path /_event/* /ping /_upload/* /health/* /api/*
+reverse_proxy @backend 127.0.0.1:8000
 
-handle @dynamic {
-    reverse_proxy 127.0.0.1:8000
-}
-
-# Static files (catch-all, must be last)
-# Serves from /srv, falls back to index.html for SPA routing
-handle {
-    root * /srv
-    try_files {path} /index.html
-    file_server
-}
+# SPA fallback and static file serving
+try_files {path} /index.html
+file_server
