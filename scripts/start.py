@@ -55,6 +55,8 @@ def start_reflex():
     env = os.environ.copy()
     env["REFLEX_ENV"] = "prod"
     env["__REFLEX_SKIP_COMPILE"] = "yes"
+    
+    print("DEBUG: Executing Uvicorn with env:", {k: v for k, v in env.items() if k in ["REFLEX_ENV", "PORT", "API_URL"]})
 
     subprocess.run(cmd, check=True, env=env)
 

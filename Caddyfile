@@ -10,6 +10,9 @@ log {
 # Simple test endpoint - verify Caddy is working
 respond /caddy-test "Caddy OK" 200
 
+# Health check endpoint for Railway (bypasses backend to return 200 immediately)
+respond /healthz "OK" 200
+
 # Set root directory for all static files
 root * /srv
 
