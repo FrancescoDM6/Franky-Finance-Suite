@@ -46,7 +46,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     MALLOC_ARENA_MAX=2 \
-    PYTHONMALLOC=malloc
+    PYTHONMALLOC=malloc \
+    PHINAN_DATABASE__PATH=/data/phinan.duckdb
+
+# Build argument for runtime API URL
+ARG API_URL
+ENV API_URL=${API_URL}
 
 # Install Caddy (for reverse proxy) and minimal runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -56,8 +61,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Create data directory for DuckDB
-RUN mkdir -p /app/data /srv
+# Create data directories for DuckDB and static assets
+RUN mkdir -p /app/data /data /srv
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
