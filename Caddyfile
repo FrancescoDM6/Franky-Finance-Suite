@@ -1,38 +1,24 @@
 :{$PORT}
 
 log {
-	output stdout
-    level INFO
+    output stdout
+    level DEBUG
 }
 
-encode gzip
-
-route {
-	# Backend routes - specific paths first
-	handle /_event/* {
-		reverse_proxy 127.0.0.1:8000
-	}
-	handle /ping {
-		reverse_proxy 127.0.0.1:8000
-	}
-	handle /_upload/* {
-		reverse_proxy 127.0.0.1:8000
-	}
-
-	# Health check endpoints
-	handle /health/* {
-		reverse_proxy 127.0.0.1:8000
-	}
-
-	# API routes
-	handle /api/* {
-		reverse_proxy 127.0.0.1:8000
-	}
-
-	# Fallback: Static files
-	handle {
-		root * /srv
-		try_files {path} {path}/ /index.html
-		file_server
-	}
+# Serve static files first
+file_server {
+    root /srv
 }
+
+# Then handle backend routes
+@backend {
+    path /_event/* /ping /_upload/* /health/* /api/*
+}
+reverse_proxy @backend 127.0.0.1:8000
+
+# SPA fallback - rewrite unknown paths to index.html
+@notfound {
+    not file
+    not path /_event/* /ping /_upload/* /health/* /api/*
+}
+rewrite @notfound /index.html
