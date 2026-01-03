@@ -38,11 +38,10 @@ def start_reflex():
     print("Starting Reflex backend on port 8000...")
 
     cmd = [
-        "reflex", "run",
-        "--env", "prod",
-        "--backend-only",
-        "--backend-host", "0.0.0.0",
-        "--backend-port", "8000",
+        "uvicorn",
+        "phinan.phinan:app",
+        "--host", "0.0.0.0",
+        "--port", "8000",
     ]
     subprocess.run(cmd, check=True)
 
