@@ -43,10 +43,11 @@ def start_reflex():
         "--host", "0.0.0.0",
         "--port", "8000",
     ]
-    # Force production mode to skip frontend compilation check
+    # Skip compilation - frontend is pre-built, served by Caddy
     env = os.environ.copy()
     env["REFLEX_ENV"] = "prod"
-    
+    env["__REFLEX_SKIP_COMPILE"] = "yes"
+
     subprocess.run(cmd, check=True, env=env)
 
 
