@@ -5,7 +5,7 @@ yfinance breaks often - interface is stable, implementation swappable.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 import pandas as pd
@@ -14,7 +14,6 @@ from ..config.settings import settings
 from ..core.database import get_database_manager
 import json
 from dataclasses import asdict
-from datetime import timedelta
 
 
 @dataclass
@@ -121,7 +120,8 @@ class MarketDataService:
         """Save data to cache."""
         try:
             db_mgr = get_database_manager()
-            expires_at = datetime.now() + timedelta(minutes=self._cache_ttl)
+            now_utc = datetime.now(timezone.utc)
+            expires_at = now_utc + timedelta(minutes=self._cache_ttl)
             
             # Serialize data if it's a dataclass, otherwise assume dict
             if hasattr(data, '__dataclass_fields__'):
@@ -142,8 +142,10 @@ class MarketDataService:
             import random
             # Generate random 32-bit integer for ID since DuckDB INTEGER is 32-bit
             cache_id = random.randint(0, 2**31 - 1)
-            now = datetime.now()
-            db_mgr.execute(query, (cache_id, symbol.upper(), data_type, json.dumps(data_dict), expires_at, now))
+            db_mgr.execute(
+                query,
+                (cache_id, symbol.upper(), data_type, json.dumps(data_dict), expires_at, now_utc),
+            )
         except Exception as e:
             print(f"Cache write error for {symbol}: {e}")
 
