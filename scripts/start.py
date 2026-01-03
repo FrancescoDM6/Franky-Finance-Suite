@@ -34,10 +34,16 @@ def start_reflex():
     Uses --backend-only to skip frontend compilation (already pre-built).
     Caddy serves static frontend and proxies backend routes.
     """
+    # Debug: show what PORT Railway set
+    port = os.environ.get("PORT", "NOT SET")
+    print(f"DEBUG: Railway PORT={port}")
+    print(f"DEBUG: Caddy should be listening on port {port}")
+    print("DEBUG: Backend will run on port 8000")
+
     # Backend always runs on 8000, Caddy proxies from PORT
     print("Starting Reflex backend on port 8000...")
     print("DEBUG: Checking /srv contents:")
-    subprocess.run(["ls", "-R", "/srv"], check=False)
+    subprocess.run(["ls", "/srv"], check=False)
 
     cmd = [
         "uvicorn",
