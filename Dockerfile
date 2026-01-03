@@ -1,5 +1,5 @@
 # Phinan Finance Suite - Production Dockerfile
-# Multi-stage build for smaller, more secure image
+# Multi-stage build for smaller image
 
 #######################################
 # BUILDER STAGE
@@ -45,28 +45,19 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Create non-root user with home directory
-RUN addgroup --system app && adduser --system --home /home/app --ingroup app app
-
-# Create data directory for DuckDB and Reflex cache
-RUN mkdir -p /app/data /home/app/.local/share/reflex && \
-    chown -R app:app /app/data /home/app
-
-# Set HOME for Reflex to find writable directory
-ENV HOME=/home/app
+# Create data directory for DuckDB
+RUN mkdir -p /app/data
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code and built frontend
-COPY --from=builder --chown=app:app /app /app
-
-# Switch to non-root user
-USER app
+# Copy application code
+COPY --from=builder /app /app
 
 # Expose ports
 EXPOSE 3000 8000
 
 # Run migrations and start application
+# Running as root to allow Railway volume writes
 CMD ["python", "scripts/start.py"]
