@@ -1,41 +1,50 @@
 :{$PORT}
 
-# Debug logging (can be reduced in production)
+# Debug logging
 log {
     output stdout
     level DEBUG
     format console
 }
 
-# Simple test endpoint - verify Caddy is working
-respond /caddy-test "Caddy OK" 200
+# Health endpoints - must use handle blocks to ensure they run first
+handle /caddy-test {
+    respond "Caddy OK" 200
+}
 
-# Health check endpoint for Railway (bypasses backend to return 200 immediately)
-# This is what Railway uses for deploy health checks
-respond /healthz "OK" 200
-
-# Set root directory for all static files
-root * /srv
-
-# Compression
-encode gzip
+handle /healthz {
+    respond "OK" 200
+}
 
 # Backend routes - proxy to Reflex backend
-# Includes WebSocket paths for Reflex real-time state sync
-@backend {
-    path /_event/* /ping /_upload/* /health/* /api/* /_ws/*
-}
-reverse_proxy @backend 127.0.0.1:8000 {
-    # Low-latency mode for WebSocket/real-time Reflex updates
-    flush_interval -1
-
-    # Forward client info to backend
-    header_up Host {host}
-    header_up X-Real-IP {remote_host}
-    header_up X-Forwarded-For {remote_host}
-    header_up X-Forwarded-Proto {scheme}
+handle /_event/* {
+    reverse_proxy 127.0.0.1:8000 {
+        flush_interval -1
+    }
 }
 
-# SPA fallback and static file serving
-try_files {path} /index.html
-file_server
+handle /_upload/* {
+    reverse_proxy 127.0.0.1:8000
+}
+
+handle /_ws/* {
+    reverse_proxy 127.0.0.1:8000 {
+        flush_interval -1
+    }
+}
+
+handle /ping {
+    reverse_proxy 127.0.0.1:8000
+}
+
+handle /api/* {
+    reverse_proxy 127.0.0.1:8000
+}
+
+# Everything else - static files with SPA fallback
+handle {
+    root * /srv
+    encode gzip
+    try_files {path} /index.html
+    file_server
+}
