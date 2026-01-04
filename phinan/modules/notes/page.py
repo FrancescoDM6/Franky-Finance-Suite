@@ -59,7 +59,7 @@ def upload_zone() -> rx.Component:
             NoteState.error_message != "",
             rx.callout(
                 NoteState.error_message,
-                icon="alert-triangle",
+                icon="triangle-alert",
                 color_scheme="red",
                 width="100%",
             ),
