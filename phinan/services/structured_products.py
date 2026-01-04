@@ -3,13 +3,17 @@
 Decomposes structured notes into bond and option components to estimate fair value.
 """
 
-from typing import Optional
-import numpy as np
-from scipy.stats import norm
+from typing import Optional, TYPE_CHECKING
 from datetime import date
 
 from ..models.structured_note import StructuredNote, NoteValuation
-from .market_data import MarketDataService
+
+# Lazy imports for heavy dependencies (numpy, scipy)
+# These are only loaded when the service is actually used
+if TYPE_CHECKING:
+    import numpy as np
+    from scipy.stats import norm
+    from .market_data import MarketDataService
 
 class StructuredProductService:
     """Service for pricing and analyzing structured products."""
@@ -25,14 +29,17 @@ class StructuredProductService:
 
     def calculate_fair_value(self, note: StructuredNote) -> NoteValuation:
         """Calculate fair value breakdown of the note.
-        
+
         Methodology:
         1. Bond Floor: PV of Principal + Fixed Coupons (if any) using Risk-Free Rate + Credit Spread.
         2. Option Component:
            - For Reverse Convertible / Autocallable: Short Down-and-In Put (Barrier Put).
            - Value = Bond Floor - Put Value
         """
-        
+        # Lazy imports for heavy dependencies
+        import numpy as np
+        from scipy.stats import norm
+
         # 1. Estimate Bond Floor (Zero Coupon Bond equivalent + PV of coupons if guaranteed)
         # Simplify: Assume Risk Free Rate = 4.5%, Credit Spread = 1.0% (Generic A-rated bank)
         r = 0.045
