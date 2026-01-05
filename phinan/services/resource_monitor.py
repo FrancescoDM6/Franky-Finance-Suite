@@ -5,6 +5,7 @@ on Oracle Free Tier ARM instances.
 """
 
 import os
+import threading
 from typing import Optional
 
 
@@ -33,12 +34,15 @@ class ResourceMonitor:
     """
     
     _instance: Optional["ResourceMonitor"] = None
-    
+    _lock = threading.Lock()
+
     def __new__(cls) -> "ResourceMonitor":
-        """Singleton pattern."""
+        """Thread-safe singleton with double-checked locking."""
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
         return cls._instance
     
     def __init__(self):

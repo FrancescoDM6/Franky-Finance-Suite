@@ -9,6 +9,7 @@ import random
 from datetime import datetime, timedelta, timezone
 from dataclasses import asdict
 from typing import Any, Optional
+import threading
 
 from ..core.database import get_database_manager
 
@@ -37,12 +38,15 @@ class CacheService:
     """
     
     _instance: Optional["CacheService"] = None
-    
+    _lock = threading.Lock()
+
     def __new__(cls) -> "CacheService":
-        """Singleton pattern."""
+        """Thread-safe singleton with double-checked locking."""
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
         return cls._instance
     
     def __init__(self):
