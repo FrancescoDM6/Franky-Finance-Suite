@@ -1,0 +1,49 @@
+# Phinan Finance Suite - Docker Compose for Oracle Cloud Deployment
+# Usage: docker compose up -d --build
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        # Set to your domain (e.g., https://phinan.example.com)
+        API_URL: ${API_URL:-http://localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - API_URL=${API_URL:-http://localhost}
+      # DOMAIN enables Caddy auto-HTTPS (e.g., phinan.example.com)
+      - DOMAIN=${DOMAIN:-}
+      - REDIS_URL=redis://redis:6379
+      # Pass through API keys from host .env
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - FMP_API_KEY=${FMP_API_KEY}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - FRED_API_KEY=${FRED_API_KEY}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - NEWSAPI_KEY=${NEWSAPI_KEY}
+    volumes:
+      # Persist DuckDB data
+      - phinan_data:/data
+      # Caddy data & config (for auto-HTTPS certificates)
+      - caddy_data:/data/caddy
+      - caddy_config:/config/caddy
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    # Expose only within Docker network (not to host)
+    expose:
+      - "6379"
+
+volumes:
+  phinan_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
