@@ -121,7 +121,7 @@ class SentimentService:
         
         # Check resource availability before loading heavy model
         if not self._resource_monitor.is_safe_to_run("local_sentiment"):
-            print("⚠️ Insufficient resources for local sentiment, using LLM-only mode")
+            logging.warning("⚠️ Insufficient resources for local sentiment, using LLM-only mode")
             self._enabled = False
             return
 
