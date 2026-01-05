@@ -10,6 +10,8 @@ import json
 from ..config.settings import settings
 from .resource_monitor import get_resource_monitor
 
+import logging
+
 
 # Confidence threshold - below this, we use LLM fallback
 CONFIDENCE_THRESHOLD = 0.8
