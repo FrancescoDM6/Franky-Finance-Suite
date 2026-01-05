@@ -191,26 +191,30 @@ class AgentGuard:
 
 # Default circuit breakers for common services
 _circuit_breakers: dict[str, CircuitBreaker] = {}
+_breaker_lock = threading.Lock()
 
 
 def get_circuit_breaker(name: str) -> CircuitBreaker:
-    """Get or create a circuit breaker for a service."""
+    """Get or create a circuit breaker for a service (thread-safe)."""
+    # Double-checked locking pattern
     if name not in _circuit_breakers:
-        # Configure based on service type
-        if name == "ollama":
-            _circuit_breakers[name] = CircuitBreaker(
-                name=name,
-                failure_threshold=3,
-                recovery_timeout=60,  # Ollama might need time to recover
-            )
-        elif name == "gemini":
-            _circuit_breakers[name] = CircuitBreaker(
-                name=name,
-                failure_threshold=5,
-                recovery_timeout=120,  # Rate limits might need longer
-            )
-        else:
-            _circuit_breakers[name] = CircuitBreaker(name=name)
+        with _breaker_lock:
+            if name not in _circuit_breakers:
+                # Configure based on service type
+                if name == "ollama":
+                    _circuit_breakers[name] = CircuitBreaker(
+                        name=name,
+                        failure_threshold=3,
+                        recovery_timeout=60,  # Ollama might need time to recover
+                    )
+                elif name == "gemini":
+                    _circuit_breakers[name] = CircuitBreaker(
+                        name=name,
+                        failure_threshold=5,
+                        recovery_timeout=120,  # Rate limits might need longer
+                    )
+                else:
+                    _circuit_breakers[name] = CircuitBreaker(name=name)
     return _circuit_breakers[name]
 
 
