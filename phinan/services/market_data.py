@@ -11,9 +11,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from ..config.settings import settings
-from ..core.database import get_database_manager
-import json
-from dataclasses import asdict
+from .cache_service import get_cache_service
 
 
 @dataclass
@@ -69,7 +67,7 @@ class MarketDataService:
     def __init__(self):
         """Initialize market data service."""
         self._provider = settings.market_data.provider
-        self._cache_ttl = settings.market_data.cache_ttl_minutes
+        self._cache = get_cache_service()
         self._yf = None
 
     def _get_yf(self):
@@ -91,63 +89,7 @@ class MarketDataService:
         except Exception:
             return False
 
-    def _get_cached_data(self, symbol: str, data_type: str) -> Optional[dict]:
-        """Get data from cache if valid."""
-        try:
-            db_mgr = get_database_manager()
-            # CURRENT_TIMESTAMP in SQL is usually UTC. datetime.now() is local?
-            # It's safer to rely on DB for time comparison if possible, or ensure consistency.
-            # Using simple comparison for now.
-            query = """
-                SELECT data FROM market_data_cache 
-                WHERE ticker_symbol = ? AND data_type = ? AND expires_at > CURRENT_TIMESTAMP
-            """
-            result = db_mgr.query(query, (symbol.upper(), data_type))
-            if result:
-                # DuckDB returns dict if we use our wrapper properly
-                # But result[0]['data'] might be a string (JSON)
-                # Check if it needs loading
-                data_val = result[0]['data']
-                if isinstance(data_val, str):
-                    return json.loads(data_val)
-                return data_val # If driver auto-converts JSON type
-        except Exception as e:
-            # Silent fail on cache error to fallback to live data
-            print(f"Cache read error for {symbol}: {e}")
-        return None
 
-    def _set_cached_data(self, symbol: str, data_type: str, data: Any):
-        """Save data to cache."""
-        try:
-            db_mgr = get_database_manager()
-            now_utc = datetime.now(timezone.utc)
-            expires_at = now_utc + timedelta(minutes=self._cache_ttl)
-            
-            # Serialize data if it's a dataclass, otherwise assume dict
-            if hasattr(data, '__dataclass_fields__'):
-                data_dict = asdict(data)
-            else:
-                data_dict = data
-                
-            query = """
-                INSERT INTO market_data_cache 
-                (id, ticker_symbol, data_type, data, expires_at, cached_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT (ticker_symbol, data_type) DO UPDATE SET
-                    data = excluded.data,
-                    expires_at = excluded.expires_at,
-                    cached_at = excluded.cached_at
-            """
-            
-            import random
-            # Generate random 32-bit integer for ID since DuckDB INTEGER is 32-bit
-            cache_id = random.randint(0, 2**31 - 1)
-            db_mgr.execute(
-                query,
-                (cache_id, symbol.upper(), data_type, json.dumps(data_dict), expires_at, now_utc),
-            )
-        except Exception as e:
-            print(f"Cache write error for {symbol}: {e}")
 
     def get_ticker_info(self, symbol: str) -> Optional[TickerInfo]:
         """Get comprehensive ticker information.
@@ -161,7 +103,7 @@ class MarketDataService:
         yf = self._get_yf()
 
         # Check cache first
-        cached = self._get_cached_data(symbol, "ticker_info")
+        cached = self._cache.get(symbol, "ticker_info")
         if cached:
             return TickerInfo(**cached)
 
@@ -190,7 +132,7 @@ class MarketDataService:
             )
             
             # Cache the result
-            self._set_cached_data(symbol, "ticker_info", result)
+            self._cache.set(symbol, "ticker_info", result)
             return result
         except Exception as e:
             print(f"Error fetching ticker info for {symbol}: {e}")
@@ -233,7 +175,7 @@ class MarketDataService:
             PriceRange dataclass
         """
         # Check cache
-        cached = self._get_cached_data(symbol, f"price_range_{period}")
+        cached = self._cache.get(symbol, f"price_range_{period}")
         if cached:
             return PriceRange(**cached)
             
@@ -261,7 +203,7 @@ class MarketDataService:
             percent_of_range=float(percent),
         )
         
-        self._set_cached_data(symbol, f"price_range_{period}", result)
+        self._cache.set(symbol, f"price_range_{period}", result)
         return result
 
     def get_options_expirations(self, symbol: str) -> list[str]:

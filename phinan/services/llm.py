@@ -12,6 +12,7 @@ from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 from ..config.settings import settings
+from .circuit_breaker import get_circuit_breaker, with_timeout, DEFAULT_LLM_TIMEOUT
 
 
 class LLMService:
@@ -225,7 +226,17 @@ class LLMService:
         model: Optional[str] = None,
         tools: Optional[list[dict]] = None,
     ) -> dict[str, Any]:
-        """Chat using Ollama (local) API."""
+        """Chat using Ollama (local) API with circuit breaker and timeout."""
+        breaker = get_circuit_breaker("ollama")
+        
+        # Check circuit breaker
+        if not breaker.allow_request():
+            return {
+                "content": "Local LLM temporarily unavailable (circuit open). Please try again later.",
+                "error": True,
+                "circuit_open": True,
+            }
+        
         client = self._get_ollama_client()
         model = model or self._ollama_model
 
@@ -235,12 +246,17 @@ class LLMService:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
 
-        try:
-            response = client.chat(
+        def _do_chat():
+            return client.chat(
                 model=model,
                 messages=full_messages,
                 tools=tools,
             )
+
+        try:
+            # Execute with timeout protection
+            response = with_timeout(_do_chat, DEFAULT_LLM_TIMEOUT)
+            breaker.record_success()
 
             result = {
                 "content": response["message"]["content"],
@@ -253,7 +269,15 @@ class LLMService:
 
             return result
 
+        except TimeoutError as e:
+            breaker.record_failure()
+            return {
+                "content": f"Ollama request timed out after {DEFAULT_LLM_TIMEOUT}s. Try a shorter prompt or check if Ollama is overloaded.",
+                "error": True,
+                "timeout": True,
+            }
         except Exception as e:
+            breaker.record_failure()
             return {
                 "content": f"Error communicating with Ollama: {str(e)}",
                 "error": True,

@@ -8,6 +8,9 @@ from typing import Optional, Protocol
 import json
 
 from ..config.settings import settings
+from .resource_monitor import get_resource_monitor
+
+import logging
 
 
 # Confidence threshold - below this, we use LLM fallback
@@ -111,10 +114,17 @@ class SentimentService:
         self._enabled = settings.ai_services.enable_sentiment
         self._llm_provider: Optional[LLMSentimentProvider] = None
         self._llm_enabled = True  # Can be toggled
+        self._resource_monitor = get_resource_monitor()
 
     def _load_model(self):
         """Lazy-load FinBERT model with GPU support."""
         if not self._enabled:
+            return
+        
+        # Check resource availability before loading heavy model
+        if not self._resource_monitor.is_safe_to_run("local_sentiment"):
+            logging.warning("⚠️ Insufficient resources for local sentiment, using LLM-only mode")
+            self._enabled = False
             return
 
         if self._model is None:
