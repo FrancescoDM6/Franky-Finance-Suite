@@ -1,5 +1,5 @@
 # CLAUDE.md
-
+@AGENTS.md
 ## Before Starting ANY Task
 
 1. ✅ Read `docs/REFLEX_REFERENCE.md` if task involves UI components

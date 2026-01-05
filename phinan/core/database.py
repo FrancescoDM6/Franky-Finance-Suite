@@ -36,28 +36,29 @@ class DatabaseManager:
 
     def __new__(cls) -> "DatabaseManager":
         """Singleton pattern for database manager."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
         """Initialize database manager."""
-        if self._initialized:
-            return
+        # Use class lock to prevent race condition during initialization
+        with self.__class__._lock:
+            if self._initialized:
+                return
 
-        self._db_path = settings.database.resolved_path
-        self._writer_conn: Optional[duckdb.DuckDBPyConnection] = None
-        self._writer_lock = threading.Lock()
-        self._initialized = True
+            self._db_path = settings.database.resolved_path
+            self._writer_conn: Optional[duckdb.DuckDBPyConnection] = None
+            self._writer_lock = threading.Lock()
+            self._initialized = True
 
-        # Ensure database directory exists
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            # Ensure database directory exists
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Register cleanup on exit
-        atexit.register(self._cleanup)
+            # Register cleanup on exit
+            atexit.register(self._cleanup)
 
     def _cleanup(self):
         """Clean up connection on exit."""
@@ -112,9 +113,13 @@ class DatabaseManager:
     def execute(self, query: str, params: tuple = ()) -> Any:
         """Execute a write query."""
         with self.get_connection() as conn:
-            result = conn.execute(query, params)
-            conn.commit()  # DuckDB requires explicit commit for persistence
-            return result
+            try:
+                result = conn.execute(query, params)
+                conn.commit()  # DuckDB requires explicit commit for persistence
+                return result
+            except Exception:
+                conn.rollback()  # Rollback on error to maintain consistency
+                raise
 
     def query(self, query: str, params: tuple = ()) -> list[dict]:
         """Execute a read query and return results as list of dicts."""

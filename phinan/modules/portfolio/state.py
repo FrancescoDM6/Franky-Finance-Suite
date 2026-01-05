@@ -183,7 +183,9 @@ class PortfolioState(rx.State):
                 """
             )
             
+            # Build positions list first
             positions = []
+            ticker_symbols = []
             for row in result:
                 pos = PortfolioPosition(
                     id=row["id"],
@@ -193,23 +195,30 @@ class PortfolioState(rx.State):
                     purchase_date=str(row["purchase_date"]) if row["purchase_date"] else "",
                     notes=row["notes"] or "",
                 )
-                
-                # Fetch current price
-                try:
-                    info = services.market_data.get_ticker_info(pos.ticker_symbol)
-                    if info and info.current_price:
-                        pos.current_price = info.current_price
-                        pos.current_value = pos.quantity * pos.current_price
-                        total_cost = pos.quantity * pos.cost_basis
-                        pos.gain_loss = pos.current_value - total_cost
-                        if total_cost > 0:
-                            pos.gain_loss_percent = (pos.gain_loss / total_cost) * 100
-                except Exception:
-                    # If price fetch fails, use cost basis
-                    pos.current_price = pos.cost_basis
-                    pos.current_value = pos.quantity * pos.cost_basis
-                
                 positions.append(pos)
+                ticker_symbols.append(pos.ticker_symbol)
+            
+            # Batch fetch all ticker prices to avoid N+1 query pattern
+            price_map = {}
+            if ticker_symbols:
+                for ticker in ticker_symbols:
+                    try:
+                        info = services.market_data.get_ticker_info(ticker)
+                        if info and info.current_price:
+                            price_map[ticker] = info.current_price
+                    except Exception:
+                        # If price fetch fails, we'll use cost basis below
+                        pass
+            
+            # Apply prices to positions
+            for pos in positions:
+                current_price = price_map.get(pos.ticker_symbol, pos.cost_basis)
+                pos.current_price = current_price
+                pos.current_value = pos.quantity * current_price
+                total_cost = pos.quantity * pos.cost_basis
+                pos.gain_loss = pos.current_value - total_cost
+                if total_cost > 0:
+                    pos.gain_loss_percent = (pos.gain_loss / total_cost) * 100
             
             self.positions = positions
             
