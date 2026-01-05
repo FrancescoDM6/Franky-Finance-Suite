@@ -134,7 +134,9 @@ class NoteState(rx.State):
 
     @rx.var
     def note_strike(self) -> str:
-        return f"{self.parsed_note.strike_price}%" if self.parsed_note else ""
+        if not self.parsed_note or self.parsed_note.strike_price is None:
+            return ""
+        return f"{self.parsed_note.strike_price}%"
 
     @rx.var
     def note_barrier(self) -> str:
