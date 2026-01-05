@@ -64,7 +64,7 @@ class CircuitBreaker:
                     if elapsed > timedelta(seconds=self.recovery_timeout):
                         self._state = CircuitState.HALF_OPEN
                         self._half_open_calls = 0
-                        print(f"⚡ Circuit '{self.name}' entering HALF_OPEN state")
+                        logging.info(f"⚡ Circuit '{self.name}' entering HALF_OPEN state")
                         return True
                 return False
             
