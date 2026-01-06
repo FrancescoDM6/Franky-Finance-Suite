@@ -112,6 +112,17 @@ class State(rx.State):
 
 ## 4. Coding Conventions
 
+### Character Encoding and Output
+**CRITICAL RULES:**
+-   **NO Unicode Characters**: Do NOT use unicode characters anywhere in code, including:
+    *   Print statements
+    *   Docstrings
+    *   Comments
+    *   String literals
+-   **Use Logging, Not Print**: Always use the `logging` module instead of `print()` statements.
+    *   Configure loggers appropriately for each module
+    *   Use appropriate log levels (DEBUG, INFO, WARNING, ERROR)
+
 ### Import Organization
 1.  **Standard Lib**
 2.  **Third Party** (Reflex, Pydantic, Pandas)
@@ -119,6 +130,7 @@ class State(rx.State):
 
 ```python
 import json
+import logging
 from datetime import datetime
 
 import reflex as rx
@@ -126,6 +138,8 @@ import pandas as pd
 
 from ...services import services
 from ..models import TickerInfo
+
+logger = logging.getLogger(__name__)
 ```
 
 ### Lazy Imports

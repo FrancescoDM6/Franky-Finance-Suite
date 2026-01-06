@@ -1,5 +1,5 @@
 # Phinan Finance Suite - Production Dockerfile
-# Multi-stage build with Caddy for static serving
+# Multi-stage build with Caddy | Supports GCE, Oracle Cloud, Railway, etc.
 
 #######################################
 # BUILDER STAGE - Heavy compilation here
