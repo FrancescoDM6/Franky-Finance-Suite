@@ -330,7 +330,7 @@ class YFinanceProvider:
                 )
             return items
         except Exception as e:
-            print(f"yfinance news error for {symbol}: {e}")
+            logger.error(f"yfinance news error for {symbol}: {e}")
             return []
 
 
