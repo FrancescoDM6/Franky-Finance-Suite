@@ -142,10 +142,15 @@ phinan/
 ### 2. LLM Extracts, Python Calculates
 Never ask the LLM to do math. Have it extract variables, then compute in Python.
 
-### 3. Data Provider Adapter Pattern
+### 3. Code Character Encoding
+- **CRITICAL:** Do NOT use unicode characters in code (including print statements, docstrings, or comments)
+- Use ASCII-only characters for all code
+- Use logging instead of print statements
+
+### 4. Data Provider Adapter Pattern
 yfinance breaks often. Abstract behind an interface for easy swap to Polygon or other providers.
 
-### 4. Service Registry Pattern
+### 5. Service Registry Pattern
 ```python
 from phinan.services import services
 
@@ -155,7 +160,7 @@ services.market_data.get_ticker_info("AAPL")
 services.db.query("SELECT * FROM portfolio")
 ```
 
-### 5. Lean State Pattern
+### 6. Lean State Pattern
 Keep Reflex state minimal - store IDs and fetch full objects on demand.
 Heavy data (options chains, price history) should come from services/cache.
 

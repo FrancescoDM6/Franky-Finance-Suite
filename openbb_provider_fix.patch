@@ -1,0 +1,51 @@
+--- a/phinan/services/market_data.py
++++ b/phinan/services/market_data.py
+@@ -68,7 +68,7 @@
+ 
+ class OpenBBProvider:
+-    """OpenBB-based data provider using obb SDK."""
++    """OpenBB 4.6.0-based data provider using the obb SDK.
++    
++    Fixed to work with OpenBB 4.6.0 actual API structure."""
+     
+     def __init__(self):
+         self._obb = None
+@@ -94,7 +94,8 @@
+             # Use equity.profile for company info
+             profile = obb.equity.profile(symbol, provider=self._provider)
+             
+-            if profile.results is None or len(profile.results) == 0:
++            if not hasattr(profile, 'results') or profile.results is None or len(profile.results) == 0:
+                 self._breaker.record_failure()
+                 return None
+             
+@@ -103,7 +104,8 @@
+             # Get current price from quote
+             current_price = None
+             try:
+-                quote = obb.equity.price.quote(symbol, provider=self._provider)
++                quote = obb.equity.price.quote(symbol, provider=self._provider)
++                if quote.results and len(quote.results) > 0:
+                     current_price = quote.results[0].last_price if quote.results else None
+             except Exception:
+                 current_price = None
+@@ -112,9 +114,9 @@
+             return TickerInfo(
+                 symbol=symbol.upper(),
+-                name=getattr(data, 'name', '') or getattr(data, 'company_name', '') or symbol,
++                name=getattr(data, 'name', None) or getattr(data, 'legal_name', None) or symbol,
+                 sector=getattr(data, 'sector', None),
+-                industry=getattr(data, 'industry', None),
++                industry=getattr(data, 'industry_category', None) or getattr(data, 'industry_group', None),
+                 market_cap=getattr(data, 'market_cap', None),
+                 pe_ratio=getattr(data, 'pe_ratio', None),
+                 dividend_yield=getattr(data, 'dividend_yield', None),
+@@ -148,7 +150,7 @@
+             )
+             
+             # Check if we have results and use to_df() method
+-            if result.results:
++            if hasattr(result, 'results') and result.results:
+                 self._breaker.record_success()
+                 df = result.to_df()
+                 

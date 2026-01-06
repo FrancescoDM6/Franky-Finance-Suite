@@ -1,4 +1,5 @@
-# Phinan Finance Suite - Docker Compose for Oracle Cloud Deployment
+# Phinan Finance Suite - Docker Compose for Cloud Deployment
+# Supports: Google Cloud (GCE), Oracle Cloud, or any VPS with Docker
 # Usage: docker compose up -d --build
 
 services:

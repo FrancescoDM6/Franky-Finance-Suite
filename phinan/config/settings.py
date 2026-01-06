@@ -78,8 +78,12 @@ class MarketDataSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PHINAN_MARKET_DATA_")
 
     provider: str = Field(
+        default="openbb",
+        description="Market data provider (openbb, yfinance)",
+    )
+    openbb_provider: str = Field(
         default="yfinance",
-        description="Market data provider (yfinance or polygon)",
+        description="OpenBB data provider backend (yfinance, fmp, polygon, etc.)",
     )
     cache_ttl_minutes: int = Field(
         default=5,
