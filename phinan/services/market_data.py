@@ -291,7 +291,7 @@ class YFinanceProvider:
             ticker = yf.Ticker(symbol)
             return ticker.history(period=period, interval=interval)
         except Exception as e:
-            print(f"yfinance price history error for {symbol}: {e}")
+            logger.error(f"yfinance price history error for {symbol}: {e}")
             return pd.DataFrame()
 
     def get_news(self, symbol: str, max_items: int = 10) -> list[NewsItem]:
