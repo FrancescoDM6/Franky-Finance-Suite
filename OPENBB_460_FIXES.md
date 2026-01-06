@@ -79,7 +79,7 @@ try:
     if quote.results and len(quote.results) > 0:
         current_price = getattr(quote.results[0], 'last_price', None)
 except Exception as e:
-    print(f"OpenBB quote error for {symbol}: {e}")
+    logger.error(f"OpenBB quote error for {symbol}: {e}")
     current_price = None
 ```
 

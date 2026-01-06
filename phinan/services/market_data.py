@@ -117,7 +117,7 @@ class OpenBBProvider:
                     # Use last_price which is correct attribute in OpenBB 4.6.0
                     current_price = getattr(quote.results[0], "last_price", None)
             except Exception as e:
-                print(f"OpenBB quote error for {symbol}: {e}")
+                logger.error(f"OpenBB quote error for {symbol}: {e}")
                 current_price = None
 
             self._breaker.record_success()
@@ -143,7 +143,7 @@ class OpenBBProvider:
                 current_price=current_price,
             )
         except Exception as e:
-            print(f"OpenBB profile error for {symbol}: {e}")
+            logger.error(f"OpenBB profile error for {symbol}: {e}")
             self._breaker.record_failure()
             return None
 
@@ -187,7 +187,7 @@ class OpenBBProvider:
 
             return pd.DataFrame()
         except Exception as e:
-            print(f"OpenBB price history error for {symbol}: {e}")
+            logger.error(f"OpenBB price history error for {symbol}: {e}")
             self._breaker.record_failure()
             return pd.DataFrame()
 
@@ -231,7 +231,7 @@ class OpenBBProvider:
                     )
             return items
         except Exception as e:
-            print(f"OpenBB news error for {symbol}: {e}")
+            logger.error(f"OpenBB news error for {symbol}: {e}")
             self._breaker.record_failure()
             return []
 
@@ -291,7 +291,7 @@ class YFinanceProvider:
             ticker = yf.Ticker(symbol)
             return ticker.history(period=period, interval=interval)
         except Exception as e:
-            print(f"yfinance price history error for {symbol}: {e}")
+            logger.error(f"yfinance price history error for {symbol}: {e}")
             return pd.DataFrame()
 
     def get_news(self, symbol: str, max_items: int = 10) -> list[NewsItem]:
@@ -330,7 +330,7 @@ class YFinanceProvider:
                 )
             return items
         except Exception as e:
-            print(f"yfinance news error for {symbol}: {e}")
+            logger.error(f"yfinance news error for {symbol}: {e}")
             return []
 
 
@@ -387,7 +387,7 @@ class MarketDataService:
 
         # Fallback if primary fails
         if result is None and self._fallback:
-            print(f"Primary provider failed for {symbol}, trying fallback...")
+            logger.warning(f"Primary provider failed for {symbol}, trying fallback...")
             result = self._fallback.get_ticker_info(symbol)
 
         if result:
