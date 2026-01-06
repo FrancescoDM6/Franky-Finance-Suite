@@ -8,12 +8,15 @@ yfinance kept as fallback for reliability.
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional, Protocol
+import logging
 
 import pandas as pd
 
 from ..config.settings import settings
 from .cache_service import get_cache_service
 from .circuit_breaker import get_circuit_breaker
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
