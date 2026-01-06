@@ -387,7 +387,7 @@ class MarketDataService:
 
         # Fallback if primary fails
         if result is None and self._fallback:
-            print(f"Primary provider failed for {symbol}, trying fallback...")
+            logger.warning(f"Primary provider failed for {symbol}, trying fallback...")
             result = self._fallback.get_ticker_info(symbol)
 
         if result:
