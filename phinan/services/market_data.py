@@ -187,7 +187,7 @@ class OpenBBProvider:
 
             return pd.DataFrame()
         except Exception as e:
-            print(f"OpenBB price history error for {symbol}: {e}")
+            logger.error(f"OpenBB price history error for {symbol}: {e}")
             self._breaker.record_failure()
             return pd.DataFrame()
 
