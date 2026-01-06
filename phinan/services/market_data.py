@@ -143,7 +143,7 @@ class OpenBBProvider:
                 current_price=current_price,
             )
         except Exception as e:
-            print(f"OpenBB profile error for {symbol}: {e}")
+            logger.error(f"OpenBB profile error for {symbol}: {e}")
             self._breaker.record_failure()
             return None
 
