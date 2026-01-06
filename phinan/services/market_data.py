@@ -231,7 +231,7 @@ class OpenBBProvider:
                     )
             return items
         except Exception as e:
-            print(f"OpenBB news error for {symbol}: {e}")
+            logger.error(f"OpenBB news error for {symbol}: {e}")
             self._breaker.record_failure()
             return []
 
