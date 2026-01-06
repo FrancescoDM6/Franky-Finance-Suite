@@ -117,7 +117,7 @@ class OpenBBProvider:
                     # Use last_price which is correct attribute in OpenBB 4.6.0
                     current_price = getattr(quote.results[0], "last_price", None)
             except Exception as e:
-                print(f"OpenBB quote error for {symbol}: {e}")
+                logger.error(f"OpenBB quote error for {symbol}: {e}")
                 current_price = None
 
             self._breaker.record_success()
