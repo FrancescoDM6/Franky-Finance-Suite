@@ -57,7 +57,9 @@ class LLMService:
 
                 self._ollama_client = ollama.Client(host=self._ollama_base_url)
             except ImportError:
-                raise ImportError("ollama package not installed. Run: pip install ollama")
+                raise ImportError(
+                    "ollama package not installed. Run: pip install ollama"
+                )
         return self._ollama_client
 
     def health_check(self) -> bool:
@@ -84,36 +86,54 @@ class LLMService:
         system: Optional[str] = None,
         model: Optional[str] = None,
         tools: Optional[list[dict]] = None,
+        task_type: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Multi-turn chat completion.
+        """Multi-turn chat completion with optional model cascading.
 
         Args:
             messages: List of {"role": "user"|"assistant", "content": "..."}
             system: Optional system prompt
             model: Model override (defaults to configured model)
             tools: Tool definitions for function calling
+            task_type: Task type for model cascading (e.g., "sentiment_classification",
+                       "research_synthesis"). If provided, uses ModelCascade to select
+                       optimal model for cost efficiency.
 
         Returns:
             Response dict with "content" and optionally "tool_calls"
         """
+        # Use model cascade if task_type provided and no explicit model override
+        cascade_model = None
+        if task_type and not model:
+            from .model_cascade import ModelCascade
+            cascade_model = ModelCascade.get_model_for_task(task_type).name
+
         if self._use_gemini:
-            return self._chat_gemini(messages, system, tools)
+            return self._chat_gemini(messages, system, tools, task_type, cascade_model)
         else:
-            return self._chat_ollama(messages, system, model, tools)
+            return self._chat_ollama(messages, system, model or cascade_model, tools)
 
     def _chat_gemini(
         self,
         messages: list[dict[str, str]],
         system: Optional[str] = None,
         tools: Optional[list[dict]] = None,
+        task_type: Optional[str] = None,
+        cascade_model: Optional[str] = None,
     ) -> dict[str, Any]:
         """Chat using Gemini API with smart fallback based on rate limit type."""
-        # Fallback chain: primary model -> alternate models -> Ollama
-        gemini_models = [
-            self._gemini_model_name,
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-        ]
+        from .model_cascade import get_cost_tracker, ModelCascade, estimate_tokens
+
+        # If cascade_model provided, use it first, otherwise use default chain
+        if cascade_model:
+            gemini_models = [cascade_model]
+        else:
+            # Fallback chain: primary model -> alternate models -> Ollama
+            gemini_models = [
+                self._gemini_model_name,
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+            ]
         # Remove duplicates while preserving order
         seen = set()
         gemini_models = [m for m in gemini_models if not (m in seen or seen.add(m))]
@@ -124,10 +144,14 @@ class LLMService:
             self._daily_exhausted_at = current_pt_date
 
         # Filter out daily-exhausted models
-        available_models = [m for m in gemini_models if m not in self._daily_exhausted_models]
-        
+        available_models = [
+            m for m in gemini_models if m not in self._daily_exhausted_models
+        ]
+
         if not available_models:
-            print("All Gemini models daily quota exhausted, going directly to Ollama...")
+            print(
+                "All Gemini models daily quota exhausted, going directly to Ollama..."
+            )
             try:
                 return self._chat_ollama(messages, system, None, tools)
             except Exception as ollama_error:
@@ -135,18 +159,18 @@ class LLMService:
                     "content": f"All Gemini models exhausted for the day. Ollama error: {ollama_error}",
                     "error": True,
                 }
-        
+
         # Build contents string from messages
         contents_parts = []
         if system:
             contents_parts.append(f"System: {system}")
-        
+
         for msg in messages:
             role = "User" if msg["role"] == "user" else "Model"
             contents_parts.append(f"{role}: {msg['content']}")
-        
+
         contents = "\n\n".join(contents_parts)
-        
+
         # Try each Gemini model in the fallback chain
         last_error = None
         for model_name in available_models:
@@ -157,6 +181,20 @@ class LLMService:
                     contents=contents,
                 )
 
+                # Track cost if task_type provided
+                if task_type:
+                    cost_tracker = get_cost_tracker()
+                    input_tokens = estimate_tokens(contents)
+                    output_tokens = estimate_tokens(response.text or "")
+                    cost = ModelCascade.estimate_cost(task_type, input_tokens, output_tokens)
+                    cost_tracker.record(
+                        task_type=task_type,
+                        model=model_name,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cost=cost,
+                    )
+
                 result = {
                     "content": response.text,
                     "model": model_name,
@@ -166,26 +204,32 @@ class LLMService:
             except Exception as e:
                 error_str = str(e)
                 last_error = e
-                
+
                 # Check if it's a rate limit error
                 if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
                     limit_type = self._parse_rate_limit_type(error_str)
-                    
+
                     if limit_type == "daily":
                         # Model is exhausted for the day - don't try again
                         self._daily_exhausted_models.add(model_name)
-                        print(f"⚠️ {model_name} DAILY quota exhausted (resets at midnight PT). Skipping for this session.")
+                        print(
+                            f"⚠️ {model_name} DAILY quota exhausted (resets at midnight PT). Skipping for this session."
+                        )
                     elif limit_type == "minute":
                         # Could retry after a minute, but we'll just move to next model
-                        print(f"Rate limited on {model_name} (per-minute), trying next model...")
+                        print(
+                            f"Rate limited on {model_name} (per-minute), trying next model..."
+                        )
                     else:
-                        print(f"Rate limited on {model_name} (unknown type), trying next model...")
+                        print(
+                            f"Rate limited on {model_name} (unknown type), trying next model..."
+                        )
                     continue
                 else:
                     # For non-rate-limit errors, still try next model
                     print(f"Error with {model_name}: {error_str[:100]}, trying next...")
                     continue
-        
+
         # All Gemini models failed, fallback to Ollama
         print("All Gemini models exhausted, falling back to Ollama...")
         try:
@@ -195,28 +239,36 @@ class LLMService:
                 "content": f"All models failed. Last Gemini error: {last_error}. Ollama error: {ollama_error}",
                 "error": True,
             }
-    
+
     def _parse_rate_limit_type(self, error_str: str) -> str:
         """Parse the type of rate limit from error message.
-        
+
         Returns: 'daily', 'minute', 'tokens', or 'unknown'
         """
         error_lower = error_str.lower()
-        
+
         # Check for daily limit indicators
-        if "perday" in error_lower or "per_day" in error_lower or "requestsperday" in error_lower:
+        if (
+            "perday" in error_lower
+            or "per_day" in error_lower
+            or "requestsperday" in error_lower
+        ):
             return "daily"
         if "daily" in error_lower:
             return "daily"
-        
+
         # Check for minute limit indicators
-        if "perminute" in error_lower or "per_minute" in error_lower or "requestsperminute" in error_lower:
+        if (
+            "perminute" in error_lower
+            or "per_minute" in error_lower
+            or "requestsperminute" in error_lower
+        ):
             return "minute"
-        
+
         # Check for token limits
         if "token" in error_lower:
             return "tokens"
-        
+
         return "unknown"
 
     def _chat_ollama(
@@ -228,7 +280,7 @@ class LLMService:
     ) -> dict[str, Any]:
         """Chat using Ollama (local) API with circuit breaker and timeout."""
         breaker = get_circuit_breaker("ollama")
-        
+
         # Check circuit breaker
         if not breaker.allow_request():
             return {
@@ -236,7 +288,7 @@ class LLMService:
                 "error": True,
                 "circuit_open": True,
             }
-        
+
         client = self._get_ollama_client()
         model = model or self._ollama_model
 
@@ -283,13 +335,20 @@ class LLMService:
                 "error": True,
             }
 
-    def complete(self, prompt: str, system: Optional[str] = None, model: Optional[str] = None) -> str:
-        """Single-turn completion.
+    def complete(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        model: Optional[str] = None,
+        task_type: Optional[str] = None,
+    ) -> str:
+        """Single-turn completion with optional model cascading.
 
         Args:
             prompt: The prompt to complete
             system: Optional system prompt
             model: Model override
+            task_type: Task type for model cascading (optional)
 
         Returns:
             Completion text
@@ -298,6 +357,7 @@ class LLMService:
             messages=[{"role": "user", "content": prompt}],
             system=system,
             model=model,
+            task_type=task_type,
         )
         return response.get("content", "")
 
@@ -330,11 +390,11 @@ class LLMService:
             contents_parts = []
             if system:
                 contents_parts.append(f"System: {system}")
-            
+
             for msg in messages:
                 role = "User" if msg["role"] == "user" else "Model"
                 contents_parts.append(f"{role}: {msg['content']}")
-            
+
             contents = "\n\n".join(contents_parts)
 
             # Use the new SDK streaming syntax
@@ -376,3 +436,21 @@ class LLMService:
 
         except Exception as e:
             yield f"Error: {str(e)}"
+
+    async def chat_async(
+        self,
+        messages: list[dict[str, str]],
+        system: Optional[str] = None,
+        model: Optional[str] = None,
+        tools: Optional[list[dict]] = None,
+    ) -> dict[str, Any]:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.chat, messages, system, model, tools)
+
+    async def complete_async(
+        self, prompt: str, system: Optional[str] = None, model: Optional[str] = None
+    ) -> str:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.complete, prompt, system, model)

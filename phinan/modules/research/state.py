@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from collections import OrderedDict
 import time
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 # numpy imported lazily in calculate_volatility() to reduce startup memory
 
@@ -26,7 +29,9 @@ class LRUCache:
     when max_size is reached. Also evicts entries older than TTL.
     """
 
-    def __init__(self, max_size: int = OPTIONS_CACHE_MAX_SIZE, ttl: int = OPTIONS_CACHE_TTL):
+    def __init__(
+        self, max_size: int = OPTIONS_CACHE_MAX_SIZE, ttl: int = OPTIONS_CACHE_TTL
+    ):
         self._cache: OrderedDict[str, dict] = OrderedDict()
         self._max_size = max_size
         self._ttl = ttl
@@ -129,7 +134,7 @@ class TickerIndex:
         if query_upper in self._symbol_to_ticker:
             t = self._symbol_to_ticker[query_upper]
             results.append(f"{t['symbol']} - {t['name']}")
-            seen.add(t['symbol'])
+            seen.add(t["symbol"])
 
         # 2. Symbol prefix matches
         for symbol in self._symbols_sorted:
@@ -160,9 +165,9 @@ class TickerIndex:
                     for t in tickers:
                         if len(results) >= limit:
                             break
-                        if t['symbol'] not in seen:
+                        if t["symbol"] not in seen:
                             results.append(f"{t['symbol']} - {t['name']}")
-                            seen.add(t['symbol'])
+                            seen.add(t["symbol"])
 
         return results[:limit]
 
@@ -177,12 +182,14 @@ _ticker_index = TickerIndex()
 
 class NewsItem(BaseModel):
     """News item model for frontend. Uses pydantic.BaseModel."""
+
     title: str = ""
     publisher: str = ""
     published: str = ""
     link: str = ""  # URL to article
     sentiment_label: str = "neutral"  # "positive", "negative", "neutral"
     sentiment_score: float = 0.5  # 0-1 confidence
+    sentiment_score_fmt: str = "50%"  # Formatted percentage string
 
 
 class ResearchState(rx.State):
@@ -194,8 +201,6 @@ class ResearchState(rx.State):
     - Range analysis
     - News aggregation
     """
-
-
 
     # Input
     ticker_input: str = ""
@@ -218,33 +223,43 @@ class ResearchState(rx.State):
     recent_news: list[NewsItem] = []
 
     # Aggregate sentiment for all news
-    aggregate_sentiment: dict[str, Any] = {}  # {dominant, counts, average_confidence, total}
+    aggregate_sentiment: dict[
+        str, Any
+    ] = {}  # {dominant, counts, average_confidence, total}
 
     # Profile-aware insights
     profile_insights: list[str] = []
-    
+
     # LLM synthesis
     llm_synthesis: str = ""
     is_generating_synthesis: bool = False
+    synthesis_error: str = ""  # User-facing error when synthesis fails
+
+    # Profile insights error
+    profile_insights_error: str = ""  # User-facing error when insights fail
 
     @rx.var
     def safe_llm_synthesis(self) -> str:
         """Escape $ signs to prevent LaTeX math mode in markdown."""
         # Replace $ with escaped version to prevent math rendering
         return self.llm_synthesis.replace("$", "\\$")
-    
+
     # New: Tab and Chart state
     selected_tab: str = "overview"
     chart_period: str = "3mo"
-    price_history: list[dict[str, Any]] = []  # [{date, open, high, low, close, volume}, ...]
+    price_history: list[
+        dict[str, Any]
+    ] = []  # [{date, open, high, low, close, volume}, ...]
 
     # Options Snapshot data
-    options_expirations: list[str] = []       # ALL available expirations (no filtering)
-    selected_expiration: str = ""              # Currently selected (profile sets default)
-    options_calls: list[dict] = []             # Filtered calls: {strike, bid, ask, oi, iv, annotation, is_atm}
-    options_puts: list[dict] = []              # Filtered puts
-    options_atm_iv: float = 0.0                # ATM implied volatility (decimal)
-    options_days_to_expiry: int = 0            # Days until selected expiration
+    options_expirations: list[str] = []  # ALL available expirations (no filtering)
+    selected_expiration: str = ""  # Currently selected (profile sets default)
+    options_calls: list[
+        dict
+    ] = []  # Filtered calls: {strike, bid, ask, oi, iv, annotation, is_atm}
+    options_puts: list[dict] = []  # Filtered puts
+    options_atm_iv: float = 0.0  # ATM implied volatility (decimal)
+    options_days_to_expiry: int = 0  # Days until selected expiration
     options_loading: bool = False
     options_error: str = ""
 
@@ -295,7 +310,7 @@ class ResearchState(rx.State):
             self.tickers = tickers_data
 
         except Exception as e:
-            print(f"Error loading tickers: {e}")
+            logger.error("Error loading tickers: %s", e)
             self.tickers = []
 
     @rx.var
@@ -326,10 +341,10 @@ class ResearchState(rx.State):
         try:
             current = self.ticker_info.get("current_price")
             target = self.analyst_data.get("target_price")
-            
+
             if not current or not target:
                 return 0
-                
+
             upside = ((float(target) / float(current)) - 1) * 100
             return int(round(upside))
         except Exception:
@@ -377,11 +392,11 @@ class ResearchState(rx.State):
         """Total count of all analyst recommendations."""
         counts = self.analyst_data.get("recommendation_counts", {})
         return (
-            counts.get("strong_buy", 0) +
-            counts.get("buy", 0) +
-            counts.get("hold", 0) +
-            counts.get("sell", 0) +
-            counts.get("strong_sell", 0)
+            counts.get("strong_buy", 0)
+            + counts.get("buy", 0)
+            + counts.get("hold", 0)
+            + counts.get("sell", 0)
+            + counts.get("strong_sell", 0)
         )
 
     @rx.var
@@ -430,6 +445,48 @@ class ResearchState(rx.State):
         return self.analyst_data.get("recent_changes", [])
 
     @rx.var
+    def fmt_target_low(self) -> str:
+        """Formatted low analyst price target."""
+        val = self.target_low
+        return f"{val:.2f}" if val else "N/A"
+
+    @rx.var
+    def fmt_target_mean(self) -> str:
+        """Formatted mean analyst price target."""
+        val = self.target_mean
+        return f"{val:.2f}" if val else "N/A"
+
+    @rx.var
+    def fmt_target_high(self) -> str:
+        """Formatted high analyst price target."""
+        val = self.target_high
+        return f"{val:.2f}" if val else "N/A"
+
+    @rx.var
+    def fmt_range_high(self) -> str:
+        """Formatted high price in range."""
+        val = self.price_range.get("high")
+        return f"{val:.2f}" if val else "N/A"
+
+    @rx.var
+    def fmt_range_low(self) -> str:
+        """Formatted low price in range."""
+        val = self.price_range.get("low")
+        return f"{val:.2f}" if val else "N/A"
+
+    @rx.var
+    def fmt_range_current(self) -> str:
+        """Formatted current price in range."""
+        val = self.price_range.get("current")
+        return f"{val:.2f}" if val else "N/A"
+
+    @rx.var
+    def fmt_range_percent(self) -> str:
+        """Formatted percent of range."""
+        val = self.price_range.get("percent_of_range")
+        return f"{val * 100:.1f}%" if val is not None else "N/A"
+
+    @rx.var
     def sentiment_counts(self) -> dict[str, int]:
         """Sentiment counts."""
         return self.aggregate_sentiment.get("counts", {})
@@ -453,7 +510,7 @@ class ResearchState(rx.State):
     def sentiment_confidence_pct(self) -> int:
         """Average sentiment confidence percentage."""
         return int(self.aggregate_sentiment.get("average_confidence", 0) * 100)
-    
+
     @rx.var
     def sentiment_total(self) -> int:
         """Total news analyzed."""
@@ -492,17 +549,29 @@ class ResearchState(rx.State):
     @rx.var
     def volatility_garch_vol_pct(self) -> str:
         """GARCH volatility formatted as percentage."""
-        return f"{self.volatility_garch_vol * 100:.1f}%" if self.volatility_garch_vol else "N/A"
+        return (
+            f"{self.volatility_garch_vol * 100:.1f}%"
+            if self.volatility_garch_vol
+            else "N/A"
+        )
 
     @rx.var
     def volatility_implied_vol_pct(self) -> str:
         """Implied volatility formatted as percentage."""
-        return f"{self.volatility_implied_vol * 100:.1f}%" if self.volatility_implied_vol else "N/A"
+        return (
+            f"{self.volatility_implied_vol * 100:.1f}%"
+            if self.volatility_implied_vol
+            else "N/A"
+        )
 
     @rx.var
     def volatility_iv_garch_ratio_fmt(self) -> str:
         """IV/GARCH ratio formatted."""
-        return f"{self.volatility_iv_garch_ratio:.2f}x" if self.volatility_iv_garch_ratio else "N/A"
+        return (
+            f"{self.volatility_iv_garch_ratio:.2f}x"
+            if self.volatility_iv_garch_ratio
+            else "N/A"
+        )
 
     @rx.var
     def volatility_iv_garch_diff_pct(self) -> str:
@@ -579,7 +648,7 @@ class ResearchState(rx.State):
     async def add_to_watchlist(self):
         """Add current ticker to user's watchlist."""
         from ...state.user_context import UserContextState
-        
+
         if self.selected_ticker:
             user_ctx = await self.get_state(UserContextState)
             user_ctx.add_to_watchlist(self.selected_ticker)
@@ -601,7 +670,7 @@ class ResearchState(rx.State):
 
     def search_ticker(self, ticker: str):
         """Set pending ticker and redirect to research page.
-        
+
         The actual search is triggered by check_pending_search on page load.
         """
         self.pending_ticker = ticker
@@ -640,38 +709,39 @@ class ResearchState(rx.State):
         self.is_loading = True
         self.loading_stage = "Fetching Market Data..."
         self.error_message = ""
-        
+
         # Yield immediately to show loading state
         yield
-        
+
         # Execute the actual research
         async for _ in self._execute_research():
             yield
 
     async def _execute_research(self):
-        """Execute the research logic (shared by research_ticker and search_ticker)."""
-        # Store the input but don't update selected_ticker yet
+        import asyncio
+        import time
+        from ...core.async_utils import run_sync
+        from ...core.metrics import metrics, record_error
+
+        start_time = time.perf_counter()
         raw_input = self.ticker_input.strip().upper()
-        
-        # Handle "SYMBOL - Name" format from autocomplete
-        if " - " in raw_input:
-            ticker_to_lookup = raw_input.split(" - ")[0]
-        else:
-            ticker_to_lookup = raw_input
+        ticker_to_lookup = (
+            raw_input.split(" - ")[0] if " - " in raw_input else raw_input
+        )
 
         try:
             from ...services import services
 
-            # Fetch ticker info first to validate
-            info = services.market_data.get_ticker_info(ticker_to_lookup)
+            metrics.active_research_sessions.inc()
+
+            info = await services.market_data.get_ticker_info_async(ticker_to_lookup)
 
             if not info:
                 self.error_message = f"Could not find ticker: {ticker_to_lookup}. Try using the stock symbol (e.g., NFLX for Netflix)."
                 self.is_loading = False
                 self.loading_stage = ""
                 return
-            
-            # Only update selected_ticker after successful validation
+
             self.selected_ticker = ticker_to_lookup
 
             self.ticker_info = {
@@ -691,27 +761,43 @@ class ResearchState(rx.State):
                 "rating": info.analyst_rating,
                 "target_price": info.target_price,
                 "num_analysts": info.num_analysts,
-                # Detailed analyst data (populated below)
                 "recommendation_counts": {},
                 "price_targets": {},
                 "recent_changes": [],
             }
 
-            # Fetch detailed analyst data
-            analyst_details = services.market_data.get_analyst_details(ticker_to_lookup)
+            self.loading_stage = "Fetching Market Data..."
+            yield
+
+            # Use TaskGroup for structured concurrency (fail-fast, automatic cleanup)
+            async with asyncio.TaskGroup() as tg:
+                analyst_task = tg.create_task(
+                    services.market_data.get_analyst_details_async(ticker_to_lookup)
+                )
+                range_task = tg.create_task(
+                    services.market_data.get_price_range_async(
+                        self.selected_ticker, self.range_period
+                    )
+                )
+                news_task = tg.create_task(
+                    services.market_data.get_news_async(self.selected_ticker, max_items=20)
+                )
+
+            analyst_details = analyst_task.result()
+            range_data = range_task.result()
+            news_items = news_task.result()
+
             if analyst_details:
-                self.analyst_data["recommendation_counts"] = analyst_details.get("recommendation_counts", {})
-                self.analyst_data["price_targets"] = analyst_details.get("price_targets", {})
-                self.analyst_data["recent_changes"] = analyst_details.get("recent_changes", [])
+                self.analyst_data["recommendation_counts"] = analyst_details.get(
+                    "recommendation_counts", {}
+                )
+                self.analyst_data["price_targets"] = analyst_details.get(
+                    "price_targets", {}
+                )
+                self.analyst_data["recent_changes"] = analyst_details.get(
+                    "recent_changes", []
+                )
 
-            self.loading_stage = "Analyzing Price Action..."
-            # Yield to update UI
-            yield 
-
-            # Fetch price range
-            range_data = services.market_data.get_price_range(
-                self.selected_ticker, self.range_period
-            )
             if range_data:
                 self.price_range = {
                     "period": range_data.period,
@@ -720,70 +806,72 @@ class ResearchState(rx.State):
                     "current": range_data.current,
                     "percent_of_range": range_data.percent_of_range,
                 }
-            
-            self.loading_stage = "Fetching News & Sentiment..."
+
+            self.loading_stage = "Analyzing Sentiment..."
             yield
 
-            # Fetch news (increase limit to 20 per user request)
-            news = services.market_data.get_news(self.selected_ticker, max_items=20)
-            news_items = news  # Process all fetched items
-            
-            # Score sentiment if service available
             sentiment_scores = []
-            if services.sentiment.health_check():
-                self.loading_stage = "Loading Sentiment Model..."
-                yield
-                # Use title + summary for more accurate sentiment
-                texts_to_analyze = [f"{item.title}. {item.summary}" for item in news_items]
-                sentiment_scores = services.sentiment.score_batch(texts_to_analyze)
-            
-            # Build news items with sentiment
+            if news_items and services.sentiment.health_check():
+                texts_to_analyze = [
+                    f"{item.title}. {item.summary}" for item in news_items
+                ]
+                sentiment_scores = await run_sync(
+                    services.sentiment.score_batch, texts_to_analyze
+                )
+
             self.recent_news = []
-            for i, item in enumerate(news_items):
+            for i, item in enumerate(news_items or []):
                 sentiment = sentiment_scores[i] if i < len(sentiment_scores) else {}
-                self.recent_news.append(NewsItem(
-                    title=item.title,
-                    publisher=item.publisher,
-                    published=item.published.isoformat(),
-                    link=item.link,
-                    sentiment_label=sentiment.get("label", "neutral"),
-                    sentiment_score=sentiment.get("score", 0.5),
-                ))
+                self.recent_news.append(
+                    NewsItem(
+                        title=item.title,
+                        publisher=item.publisher,
+                        published=item.published.isoformat(),
+                        link=item.link,
+                        sentiment_label=sentiment.get("label", "neutral"),
+                        sentiment_score=sentiment.get("score", 0.5),
+                        sentiment_score_fmt=f"{sentiment.get('score', 0.5) * 100:.0f}%",
+                    )
+                )
 
-            # Compute aggregate sentiment
             self._compute_aggregate_sentiment()
-            
-            self.loading_stage = "Calculating Quality Metrics..."
-            yield
-
-            # Compute quality check
             self._compute_quality_check()
 
-            self.loading_stage = "Loading Options Chain..."
+            self.loading_stage = "Loading Options & Charts..."
             yield
+
+            # Fetch options data first (accesses UserContextState, must be sequential)
             await self._fetch_options_data()
 
-            self.loading_stage = "Analyzing Volatility..."
+            # Use TaskGroup for remaining concurrent tasks
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(self._fetch_volatility_data_safe())
+                tg.create_task(self._fetch_price_history())
             yield
-            await self._fetch_volatility_data()
 
-            # Fetch price history for charts
-            await self._fetch_price_history()
-            
             self.loading_stage = "Generating AI Synthesis..."
             yield
 
-            # Apply profile-aware insights
             await self._apply_profile_insights()
-            
-            # Generate LLM synthesis (non-blocking, happens in background)
             await self._generate_synthesis()
+            yield
 
         except Exception as e:
             self.error_message = f"Error: {str(e)}"
+            record_error("research", type(e).__name__)
         finally:
+            duration = time.perf_counter() - start_time
+            metrics.research_duration.labels(ticker=ticker_to_lookup).observe(duration)
+            metrics.active_research_sessions.dec()
             self.is_loading = False
             self.loading_stage = ""
+
+    async def _fetch_volatility_data_safe(self):
+        try:
+            await self._fetch_volatility_data()
+        except Exception as e:
+            self.volatility_error = str(e)
+            self.volatility_available = False
 
     async def _generate_synthesis(self, force_refresh: bool = False):
         """Generate LLM synthesis of the research data.
@@ -799,6 +887,10 @@ class ResearchState(rx.State):
         # Check if synthesis service is available
         if not services.synthesis.health_check():
             self.llm_synthesis = ""
+            self.synthesis_error = "AI analysis unavailable: service offline"
+            logger.warning(
+                "Synthesis service health check failed for %s", self.selected_ticker
+            )
             return
 
         try:
@@ -812,6 +904,7 @@ class ResearchState(rx.State):
             portfolio_position = None
             try:
                 from ..portfolio.state import PortfolioState
+
                 portfolio_state = await self.get_state(PortfolioState)
                 pos = portfolio_state.get_position_for_ticker(self.selected_ticker)
                 if pos:
@@ -822,12 +915,14 @@ class ResearchState(rx.State):
                         "gain_loss_percent": pos.gain_loss_percent,
                     }
             except Exception as e:
-                print(f"Could not fetch portfolio context: {e}")
+                logger.warning("Could not fetch portfolio context: %s", e)
 
             # Determine aggregate news sentiment
             sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
             for item in self.recent_news:
-                sentiment_counts[item.sentiment_label] = sentiment_counts.get(item.sentiment_label, 0) + 1
+                sentiment_counts[item.sentiment_label] = (
+                    sentiment_counts.get(item.sentiment_label, 0) + 1
+                )
             dominant_sentiment = max(sentiment_counts, key=sentiment_counts.get)
 
             # Build context and generate synthesis via service
@@ -847,19 +942,21 @@ class ResearchState(rx.State):
                 options_expiration=self.selected_expiration,
             )
 
-            result = services.synthesis.generate_research_synthesis(
+            result = await services.synthesis.generate_research_synthesis_async(
                 context, force_refresh=force_refresh
             )
 
             if result.success:
                 self.llm_synthesis = result.content
             else:
-                print(f"Synthesis generation failed: {result.error}")
                 self.llm_synthesis = ""
 
         except Exception as e:
-            print(f"Error generating LLM synthesis: {e}")
+            logger.error(
+                "Error generating synthesis for %s: %s", self.selected_ticker, e
+            )
             self.llm_synthesis = ""
+            self.synthesis_error = "AI analysis failed: please try again"
         finally:
             self.is_generating_synthesis = False
 
@@ -873,15 +970,17 @@ class ResearchState(rx.State):
         """Generate profile-specific insights based on active user profile."""
         from ...state.user_context import UserContextState
         from .profiles import get_papi_insights, get_tio_insights, get_franky_insights
-        
+
         try:
             # Get user context state to find active profile
             user_ctx = await self.get_state(UserContextState)
             profile = user_ctx.active_profile.lower()
-            
+
             # Convert NewsItem objects to dicts for insight functions
-            news_dicts = [{"title": n.title, "publisher": n.publisher} for n in self.recent_news]
-            
+            news_dicts = [
+                {"title": n.title, "publisher": n.publisher} for n in self.recent_news
+            ]
+
             if profile == "papi":
                 self.profile_insights = get_papi_insights(
                     self.ticker_info, self.price_range, self.analyst_data
@@ -896,43 +995,51 @@ class ResearchState(rx.State):
                     self.ticker_info, self.price_range, news_dicts, self.analyst_data
                 )
         except Exception as e:
-            print(f"Error generating profile insights: {e}")
+            logger.error("Error generating profile insights: %s", e)
             self.profile_insights = []
-
+            self.profile_insights_error = "Insights unavailable"
 
     async def _fetch_price_history(self):
         """Fetch price history for charts."""
         if not self.selected_ticker:
             return
-        
+
         try:
             from ...services import services
-            
+
             df = services.market_data.get_price_history(
-                self.selected_ticker, 
-                period=self.chart_period,
-                interval="1d"
+                self.selected_ticker, period=self.chart_period, interval="1d"
             )
-            
+
             if df.empty:
                 self.price_history = []
                 return
-            
+
+            # Case-insensitive column access
+            col_map = {c.lower(): c for c in df.columns}
+            close_col = col_map.get("close")
+
+            if not close_col:
+                self.price_history = []
+                return
+
             # Convert DataFrame to list of dicts for Reflex
+            # Only store date and close - the only fields used by the chart
             history_data = []
             for idx, row in df.iterrows():
-                history_data.append({
-                    "date": idx.strftime("%Y-%m-%d") if hasattr(idx, 'strftime') else str(idx),
-                    "open": round(float(row["Open"]), 2),
-                    "high": round(float(row["High"]), 2),
-                    "low": round(float(row["Low"]), 2),
-                    "close": round(float(row["Close"]), 2),
-                    "volume": int(row["Volume"]) if "Volume" in row else 0,
-                })
-            
+                history_data.append(
+                    {
+                        "date": idx.strftime("%Y-%m-%d")
+                        if hasattr(idx, "strftime")
+                        else str(idx),
+                        "close": round(float(row[close_col]), 2),
+                    }
+                )
+
             self.price_history = history_data
+            self.price_history = []
         except Exception as e:
-            print(f"Error fetching price history: {e}")
+            logger.warning("Error fetching price history for %s: %s", self.selected_ticker, e)
             self.price_history = []
 
     def _compute_quality_check(self):
@@ -1019,10 +1126,17 @@ class ResearchState(rx.State):
             profile = get_profile(user_ctx.active_profile)
 
             # Fetch all expirations
-            expirations = services.market_data.get_options_expirations(self.selected_ticker)
+            expirations = services.market_data.get_options_expirations(
+                self.selected_ticker
+            )
 
             if not expirations:
                 self.options_expirations = []
+                self.selected_expiration = ""
+                self.options_calls = []
+                self.options_puts = []
+                self.options_atm_iv = 0.0
+                self.options_days_to_expiry = 0
                 self.options_error = "No options listed for this ticker."
                 self.options_summary = "No options listed."
                 return
@@ -1039,12 +1153,21 @@ class ResearchState(rx.State):
             await self._load_options_for_expiration()
 
         except Exception as e:
+            logger.error("Error fetching options for %s: %s", self.selected_ticker, e)
+            self.options_expirations = []
+            self.selected_expiration = ""
+            self.options_calls = []
+            self.options_puts = []
+            self.options_atm_iv = 0.0
+            self.options_days_to_expiry = 0
             self.options_error = f"Error fetching options: {str(e)}"
             self.options_summary = "Error fetching options data."
         finally:
             self.options_loading = False
 
-    def _get_default_expiration_for_profile(self, expirations: list[str], profile_timeframe: str) -> str:
+    def _get_default_expiration_for_profile(
+        self, expirations: list[str], profile_timeframe: str
+    ) -> str:
         """Select the best default expiration based on user profile.
 
         - Papi (2_weeks): First expiration in 7-21 day range
@@ -1174,8 +1297,16 @@ class ResearchState(rx.State):
             self._build_structured_options_summary()
 
         except Exception as e:
+            logger.error(
+                "Error loading options chain for %s/%s: %s",
+                self.selected_ticker,
+                self.selected_expiration,
+                e,
+            )
+            self.options_calls = []
+            self.options_puts = []
+            self.options_atm_iv = 0.0
             self.options_error = f"Error loading chain: {str(e)}"
-            print(f"Error loading options: {e}")
         finally:
             self.options_loading = False
 
@@ -1238,19 +1369,23 @@ class ResearchState(rx.State):
                 continue
 
             seen_strikes.add(strike)
-            interesting.append({
-                "strike": strike,
-                "annotation": annotation,
-                "is_atm": is_atm,
-            })
+            interesting.append(
+                {
+                    "strike": strike,
+                    "annotation": annotation,
+                    "is_atm": is_atm,
+                }
+            )
 
         # Always include ATM even if already captured
         if atm_strike not in seen_strikes:
-            interesting.append({
-                "strike": atm_strike,
-                "annotation": "ATM",
-                "is_atm": True,
-            })
+            interesting.append(
+                {
+                    "strike": atm_strike,
+                    "annotation": "ATM",
+                    "is_atm": True,
+                }
+            )
 
         # Sort by strike and limit to ~8 strikes
         interesting.sort(key=lambda x: x["strike"])
@@ -1276,16 +1411,18 @@ class ResearchState(rx.State):
             info = strike_info.get(strike, {})
             iv_raw = float(row.get("impliedVolatility", 0) or 0)
 
-            rows.append({
-                "strike": float(strike),
-                "bid": float(row.get("bid", 0) or 0),
-                "ask": float(row.get("ask", 0) or 0),
-                "oi": int(row.get("openInterest", 0) or 0),
-                "iv": iv_raw,
-                "iv_pct": f"{iv_raw * 100:.0f}%",  # Pre-formatted for display
-                "annotation": info.get("annotation", ""),
-                "is_atm": info.get("is_atm", False),
-            })
+            rows.append(
+                {
+                    "strike": float(strike),
+                    "bid": float(row.get("bid", 0) or 0),
+                    "ask": float(row.get("ask", 0) or 0),
+                    "oi": int(row.get("openInterest", 0) or 0),
+                    "iv": iv_raw,
+                    "iv_pct": f"{iv_raw * 100:.0f}%",  # Pre-formatted for display
+                    "annotation": info.get("annotation", ""),
+                    "is_atm": info.get("is_atm", False),
+                }
+            )
 
         # Sort calls descending (high strikes first), puts ascending
         if option_type == "call":
@@ -1308,19 +1445,23 @@ class ResearchState(rx.State):
         ]
 
         for c in self.options_calls[:4]:
-            ann = f" ({c['annotation']})" if c['annotation'] else ""
-            lines.append(f"  ${c['strike']:.0f}{ann}: ${c['bid']:.2f} bid, IV {c['iv']*100:.0f}%")
+            ann = f" ({c['annotation']})" if c["annotation"] else ""
+            lines.append(
+                f"  ${c['strike']:.0f}{ann}: ${c['bid']:.2f} bid, IV {c['iv'] * 100:.0f}%"
+            )
 
         lines.append("")
         lines.append("Puts (sell if bullish, buy if bearish):")
 
         for p in self.options_puts[:4]:
-            ann = f" ({p['annotation']})" if p['annotation'] else ""
-            lines.append(f"  ${p['strike']:.0f}{ann}: ${p['bid']:.2f} bid, IV {p['iv']*100:.0f}%")
+            ann = f" ({p['annotation']})" if p["annotation"] else ""
+            lines.append(
+                f"  ${p['strike']:.0f}{ann}: ${p['bid']:.2f} bid, IV {p['iv'] * 100:.0f}%"
+            )
 
         if self.options_atm_iv:
             lines.append("")
-            lines.append(f"ATM IV: {self.options_atm_iv*100:.0f}%")
+            lines.append(f"ATM IV: {self.options_atm_iv * 100:.0f}%")
 
         self.options_summary = "\n".join(lines)
 
@@ -1369,9 +1510,7 @@ class ResearchState(rx.State):
 
             # Fetch 1 year of price history for GARCH accuracy
             df = services.market_data.get_price_history(
-                self.selected_ticker,
-                period="1y",
-                interval="1d"
+                self.selected_ticker, period="1y", interval="1d"
             )
 
             if df.empty or len(df) < 60:  # Need at least 60 days
@@ -1381,7 +1520,17 @@ class ResearchState(rx.State):
 
             # Calculate log returns (lazy import to reduce startup memory)
             import numpy as np
-            close_prices = df["Close"]
+
+            # Case-insensitive column access
+            col_map = {c.lower(): c for c in df.columns}
+            close_col = col_map.get("close")
+
+            if not close_col:
+                self.volatility_error = "Close price column not found"
+                self.volatility_available = False
+                return
+
+            close_prices = df[close_col]
             returns = np.log(close_prices / close_prices.shift(1)).dropna()
 
             # Get horizon from state (string to int)

@@ -49,6 +49,7 @@ def price_chart() -> rx.Component:
                 data=ResearchState.price_history,
                 width="100%",
                 height=300,
+                key=ResearchState.selected_ticker + ResearchState.chart_period + ResearchState.selected_tab, # Force re-render on tab change
             ),
             rx.center(
                 rx.text("No chart data available", color_scheme="gray"),

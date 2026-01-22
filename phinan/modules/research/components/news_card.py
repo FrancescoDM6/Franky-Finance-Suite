@@ -14,8 +14,7 @@ def sentiment_badge_with_confidence(item) -> rx.Component:
             rx.badge("Neutral", color_scheme="gray", size="1"),
         ),
         rx.text(
-            (item.sentiment_score * 100).to(int),
-            "%",
+            item.sentiment_score_fmt,
             size="1",
             color_scheme="gray",
         ),

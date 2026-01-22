@@ -92,7 +92,7 @@ class OpenBBProvider:
         return self._obb
 
     def get_ticker_info(self, symbol: str) -> Optional[TickerInfo]:
-        """Get ticker info via OpenBB equity.profile."""
+        """Get ticker info via OpenBB equity.profile and fundamental.metrics."""
         if not self._breaker.allow_request():
             return None
 
@@ -120,13 +120,57 @@ class OpenBBProvider:
                     # Use last_price which is correct attribute in OpenBB 4.6.0
                     current_price = getattr(quote.results[0], "last_price", None)
             except Exception as e:
-                logger.error(f"OpenBB quote error for {symbol}: {e}")
+                logger.error("OpenBB quote error for %s: %s", symbol, e)
                 current_price = None
+
+            # Fetch fundamental metrics (pe_ratio, profit_margin, etc.)
+            # equity.profile doesn't include these, so we use fundamental.metrics
+            pe_ratio = None
+            dividend_yield = None
+            profit_margin = None
+            debt_to_equity = None
+
+            try:
+                metrics = obb.equity.fundamental.metrics(symbol, provider=self._provider)
+                if hasattr(metrics, "results") and metrics.results:
+                    m = metrics.results[0]
+                    pe_ratio = getattr(m, "pe_ratio", None)
+                    profit_margin = getattr(m, "profit_margin", None)
+                    debt_to_equity = getattr(m, "debt_to_equity", None)
+                    dividend_yield = getattr(m, "dividend_yield", None)
+
+                    # Fix OpenBB dividend yield bug: returns percentage (e.g., 0.41)
+                    # instead of decimal (e.g., 0.0041). Correct if value > 0.2 (20%)
+                    if dividend_yield is not None and dividend_yield > 0.2:
+                        dividend_yield = dividend_yield / 100
+
+                    # Fix debt_to_equity scaling: yfinance returns as percentage
+                    # (e.g., 152 meaning 1.52). Correct if value > 10
+                    if debt_to_equity is not None and debt_to_equity > 10:
+                        debt_to_equity = debt_to_equity / 100
+            except Exception as e:
+                logger.warning("Could not fetch fundamental metrics for %s: %s", symbol, e)
+
+            # Fetch analyst estimates (rating, target price)
+            analyst_rating = None
+            target_price = None
+            num_analysts = None
+
+            try:
+                consensus = obb.equity.estimates.consensus(symbol, provider=self._provider)
+                if hasattr(consensus, "results") and consensus.results:
+                    c = consensus.results[0]
+                    analyst_rating = getattr(c, "recommendation", None)
+                    target_price = getattr(c, "target_consensus", None) or getattr(
+                        c, "target_median", None
+                    )
+                    num_analysts = getattr(c, "number_of_analysts", None)
+            except Exception as e:
+                logger.warning("Could not fetch analyst estimates for %s: %s", symbol, e)
 
             self._breaker.record_success()
 
             # Map OpenBB attributes to our TickerInfo structure
-            # Based on actual testing of YFinanceEquityProfileData model
             return TickerInfo(
                 symbol=symbol.upper(),
                 name=getattr(data, "name", None)
@@ -136,19 +180,21 @@ class OpenBBProvider:
                 industry=getattr(data, "industry_category", None)
                 or getattr(data, "industry_group", None),
                 market_cap=getattr(data, "market_cap", None),
-                pe_ratio=getattr(data, "pe_ratio", None),
-                dividend_yield=getattr(data, "dividend_yield", None),
-                profit_margin=getattr(data, "profit_margin", None),
-                debt_to_equity=getattr(data, "debt_to_equity", None),
-                analyst_rating=None,  # Requires separate call
-                target_price=None,
-                num_analysts=None,
+                pe_ratio=pe_ratio,
+                dividend_yield=dividend_yield,
+                profit_margin=profit_margin,
+                debt_to_equity=debt_to_equity,
+                analyst_rating=analyst_rating,
+                target_price=target_price,
+                num_analysts=num_analysts,
                 current_price=current_price,
             )
+
         except Exception as e:
-            logger.error(f"OpenBB profile error for {symbol}: {e}")
+            logger.error("OpenBB profile error for %s: %s", symbol, e)
             self._breaker.record_failure()
             return None
+
 
     def get_price_history(
         self, symbol: str, period: str = "6mo", interval: str = "1d"
@@ -372,26 +418,27 @@ class MarketDataService:
             return False
 
     def get_ticker_info(self, symbol: str) -> Optional[TickerInfo]:
-        """Get comprehensive ticker information.
+        import time
+        from ..core.metrics import metrics, record_cache_hit, record_cache_miss
 
-        Args:
-            symbol: Stock ticker symbol (e.g., "AAPL")
-
-        Returns:
-            TickerInfo dataclass or None if not found
-        """
-        # Check cache first
         cached = self._cache.get(symbol, "ticker_info")
         if cached:
+            record_cache_hit("ticker_info")
             return TickerInfo(**cached)
 
-        # Try primary provider
+        record_cache_miss("ticker_info")
+        start = time.perf_counter()
+
         result = self._primary.get_ticker_info(symbol)
 
-        # Fallback if primary fails
         if result is None and self._fallback:
             logger.warning(f"Primary provider failed for {symbol}, trying fallback...")
             result = self._fallback.get_ticker_info(symbol)
+
+        duration = time.perf_counter() - start
+        metrics.market_data_duration.labels(
+            operation="ticker_info", provider=self._provider_name
+        ).observe(duration)
 
         if result:
             self._cache.set(symbol, "ticker_info", result)
@@ -534,22 +581,22 @@ class MarketDataService:
             return {"calls": pd.DataFrame(), "puts": pd.DataFrame()}
 
     def get_news(self, symbol: str, max_items: int = 10) -> list[NewsItem]:
-        """Get recent news for a ticker.
+        import time
+        from ..core.metrics import metrics
 
-        Args:
-            symbol: Stock ticker symbol
-            max_items: Maximum news items to return
-
-        Returns:
-            List of NewsItem dataclasses
-        """
-        # Try primary provider
+        start = time.perf_counter()
         result = self._primary.get_news(symbol, max_items)
 
-        # Fallback if primary fails
         if not result and self._fallback:
-            print(f"Primary provider failed for news {symbol}, trying fallback...")
+            logger.warning(
+                f"Primary provider failed for news {symbol}, trying fallback..."
+            )
             result = self._fallback.get_news(symbol, max_items)
+
+        duration = time.perf_counter() - start
+        metrics.market_data_duration.labels(
+            operation="news", provider=self._provider_name
+        ).observe(duration)
 
         return result
 
@@ -661,3 +708,47 @@ class MarketDataService:
             "price_targets": {"low": None, "mean": None, "median": None, "high": None},
             "recent_changes": [],
         }
+
+    async def get_ticker_info_async(self, symbol: str) -> Optional[TickerInfo]:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.get_ticker_info, symbol)
+
+    async def get_price_range_async(
+        self, symbol: str, period: str = "3mo"
+    ) -> Optional[PriceRange]:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.get_price_range, symbol, period)
+
+    async def get_news_async(self, symbol: str, max_items: int = 10) -> list[NewsItem]:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.get_news, symbol, max_items)
+
+    async def get_analyst_details_async(self, symbol: str) -> dict:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.get_analyst_details, symbol)
+
+    async def get_price_history_async(
+        self,
+        symbol: str,
+        period: str = "6mo",
+        interval: str = "1d",
+    ) -> pd.DataFrame:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.get_price_history, symbol, period, interval)
+
+    async def get_options_expirations_async(self, symbol: str) -> list[str]:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.get_options_expirations, symbol)
+
+    async def get_options_chain_async(
+        self, symbol: str, expiration: Optional[str] = None
+    ) -> dict[str, pd.DataFrame]:
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.get_options_chain, symbol, expiration)

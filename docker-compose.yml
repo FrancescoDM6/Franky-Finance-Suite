@@ -33,6 +33,12 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1500M # Hard ceiling - OOM kill if exceeded
+        reservations:
+          memory: 512M # Guaranteed minimum
 
   redis:
     image: redis:7-alpine

@@ -58,7 +58,7 @@ def price_targets_row() -> rx.Component:
                 rx.vstack(
                     rx.text("Low", size="1", color_scheme="gray"),
                     rx.text(
-                        "$", ResearchState.target_low,
+                        "$", ResearchState.fmt_target_low,
                         size="2",
                         color="var(--red-11)",
                     ),
@@ -68,7 +68,7 @@ def price_targets_row() -> rx.Component:
                 rx.vstack(
                     rx.text("Mean", size="1", color_scheme="gray"),
                     rx.text(
-                        "$", ResearchState.target_mean,
+                        "$", ResearchState.fmt_target_mean,
                         size="2",
                         weight="bold",
                     ),
@@ -78,7 +78,7 @@ def price_targets_row() -> rx.Component:
                 rx.vstack(
                     rx.text("High", size="1", color_scheme="gray"),
                     rx.text(
-                        "$", ResearchState.target_high,
+                        "$", ResearchState.fmt_target_high,
                         size="2",
                         color="var(--green-11)",
                     ),

@@ -19,7 +19,7 @@ def portfolio_summary() -> rx.Component:
                 rx.text(
                     rx.cond(
                         PortfolioState.has_positions,
-                        f"${PortfolioState.total_value:,.2f}",
+                        PortfolioState.fmt_total_value,
                         "$0.00",
                     ),
                     size="6",
@@ -33,7 +33,7 @@ def portfolio_summary() -> rx.Component:
                 rx.text(
                     rx.cond(
                         PortfolioState.has_positions,
-                        f"${PortfolioState.total_cost:,.2f}",
+                        PortfolioState.fmt_total_cost,
                         "$0.00",
                     ),
                     size="4",
@@ -46,30 +46,14 @@ def portfolio_summary() -> rx.Component:
                 rx.text("Unrealized P/L", size="1", color_scheme="gray"),
                 rx.hstack(
                     rx.text(
-                        rx.cond(
-                            PortfolioState.total_gain_loss >= 0,
-                            f"+${PortfolioState.total_gain_loss:,.2f}",
-                            f"-${abs(PortfolioState.total_gain_loss):,.2f}",
-                        ),
+                        PortfolioState.fmt_total_gain_loss,
                         size="4",
                         weight="medium",
-                        color=rx.cond(
-                            PortfolioState.total_gain_loss >= 0,
-                            "var(--green-11)",
-                            "var(--red-11)",
-                        ),
+                        color=PortfolioState.total_gain_loss_color,
                     ),
                     rx.badge(
-                        rx.cond(
-                            PortfolioState.total_gain_loss_percent >= 0,
-                            f"+{PortfolioState.total_gain_loss_percent:.1f}%",
-                            f"{PortfolioState.total_gain_loss_percent:.1f}%",
-                        ),
-                        color_scheme=rx.cond(
-                            PortfolioState.total_gain_loss >= 0,
-                            "green",
-                            "red",
-                        ),
+                        PortfolioState.fmt_total_pl_pct,
+                        color_scheme=PortfolioState.total_gain_loss_badge_color,
                         variant="soft",
                     ),
                     spacing="2",
@@ -86,6 +70,7 @@ def portfolio_summary() -> rx.Component:
     )
 
 
+
 def position_row(position: PortfolioPosition) -> rx.Component:
     """Single position row in the table."""
     return rx.table.row(
@@ -95,35 +80,19 @@ def position_row(position: PortfolioPosition) -> rx.Component:
                 spacing="2",
             )
         ),
-        rx.table.cell(rx.text(f"{position.quantity:,.2f}")),
-        rx.table.cell(rx.text(f"${position.cost_basis:,.2f}")),
-        rx.table.cell(rx.text(f"${position.current_price:,.2f}")),
-        rx.table.cell(rx.text(f"${position.current_value:,.2f}")),
+        rx.table.cell(rx.text(position.fmt_quantity)),
+        rx.table.cell(rx.text(position.fmt_cost_basis)),
+        rx.table.cell(rx.text(position.fmt_current_price)),
+        rx.table.cell(rx.text(position.fmt_current_value)),
         rx.table.cell(
             rx.hstack(
                 rx.text(
-                    rx.cond(
-                        position.gain_loss >= 0,
-                        f"+${position.gain_loss:,.2f}",
-                        f"-${abs(position.gain_loss):,.2f}",
-                    ),
-                    color=rx.cond(
-                        position.gain_loss >= 0,
-                        "var(--green-11)",
-                        "var(--red-11)",
-                    ),
+                    position.fmt_gain_loss,
+                    color=position.gain_loss_color,
                 ),
                 rx.badge(
-                    rx.cond(
-                        position.gain_loss_percent >= 0,
-                        f"+{position.gain_loss_percent:.1f}%",
-                        f"{position.gain_loss_percent:.1f}%",
-                    ),
-                    color_scheme=rx.cond(
-                        position.gain_loss >= 0,
-                        "green",
-                        "red",
-                    ),
+                    position.fmt_gain_loss_percent,
+                    color_scheme=position.gain_loss_badge_color,
                     variant="soft",
                     size="1",
                 ),
@@ -136,13 +105,53 @@ def position_row(position: PortfolioPosition) -> rx.Component:
                 size="1",
                 color_scheme="red",
                 variant="ghost",
-                on_click=lambda: PortfolioState.delete_position(position.id),
+                on_click=lambda: PortfolioState.confirm_delete_position(position.id),
             )
         ),
     )
 
 
+
+def delete_confirmation_dialog() -> rx.Component:
+    """Confirmation dialog for deleting a position."""
+    return rx.alert_dialog.root(
+        rx.alert_dialog.content(
+            rx.alert_dialog.title("Delete Position"),
+            rx.alert_dialog.description(
+                rx.text(
+                    "Are you sure you want to delete your ",
+                    rx.text(PortfolioState.delete_confirm_ticker, weight="bold"),
+                    " position? This action cannot be undone.",
+                ),
+            ),
+            rx.hstack(
+                rx.alert_dialog.cancel(
+                    rx.button(
+                        "Cancel",
+                        variant="soft",
+                        color_scheme="gray",
+                        on_click=PortfolioState.cancel_delete,
+                    ),
+                ),
+                rx.alert_dialog.action(
+                    rx.button(
+                        "Delete",
+                        color_scheme="red",
+                        on_click=PortfolioState.execute_delete,
+                    ),
+                ),
+                spacing="3",
+                justify="end",
+                width="100%",
+            ),
+            style={"max_width": "450px"},
+        ),
+        open=PortfolioState.show_delete_confirm,
+    )
+
+
 def positions_table() -> rx.Component:
+
     """Table of all positions."""
     return rx.cond(
         PortfolioState.has_positions,
@@ -249,6 +258,9 @@ def add_position_form() -> rx.Component:
                         rx.text("Quantity", size="1", weight="medium"),
                         rx.input(
                             placeholder="10",
+                            type="number",
+                            min="0.01",
+                            step="0.01",
                             value=PortfolioState.form_quantity,
                             on_change=PortfolioState.set_form_quantity,
                             width="100%",
@@ -260,6 +272,9 @@ def add_position_form() -> rx.Component:
                         rx.text("Cost Basis (per share)", size="1", weight="medium"),
                         rx.input(
                             placeholder="150.00",
+                            type="number",
+                            min="0.01",
+                            step="0.01",
                             value=PortfolioState.form_cost_basis,
                             on_change=PortfolioState.set_form_cost_basis,
                             width="100%",
@@ -270,7 +285,7 @@ def add_position_form() -> rx.Component:
                     rx.vstack(
                         rx.text("Purchase Date", size="1", weight="medium"),
                         rx.input(
-                            placeholder="2024-01-15",
+                            type="date",
                             value=PortfolioState.form_purchase_date,
                             on_change=PortfolioState.set_form_purchase_date,
                             width="100%",
@@ -351,6 +366,7 @@ def portfolio_content() -> rx.Component:
                 portfolio_summary(),
                 add_position_form(),
                 positions_table(),
+                delete_confirmation_dialog(),
                 spacing="4",
                 width="100%",
             ),

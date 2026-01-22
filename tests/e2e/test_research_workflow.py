@@ -34,6 +34,8 @@ def mock_market_data_service():
     mock_info.target_price = 200.00
     mock_info.num_analysts = 40
     mock.get_ticker_info.return_value = mock_info
+    # Async version used by ResearchState._execute_research
+    mock.get_ticker_info_async = AsyncMock(return_value=mock_info)
 
     mock_range = MagicMock()
     mock_range.period = "3mo"
@@ -42,8 +44,10 @@ def mock_market_data_service():
     mock_range.current = 175.50
     mock_range.percent_of_range = 0.35
     mock.get_price_range.return_value = mock_range
+    # Async version used by ResearchState._execute_research
+    mock.get_price_range_async = AsyncMock(return_value=mock_range)
 
-    mock.get_analyst_details.return_value = {
+    analyst_details = {
         "recommendation_counts": {
             "strong_buy": 15,
             "buy": 18,
@@ -58,6 +62,9 @@ def mock_market_data_service():
         },
         "recent_changes": [],
     }
+    mock.get_analyst_details.return_value = analyst_details
+    # Async version used by ResearchState._execute_research
+    mock.get_analyst_details_async = AsyncMock(return_value=analyst_details)
 
     mock_news = MagicMock()
     mock_news.title = "Apple Reports Strong Q4"
@@ -66,9 +73,14 @@ def mock_market_data_service():
     mock_news.link = "https://example.com/news"
     mock_news.summary = "Apple Inc reported better than expected earnings."
     mock.get_news.return_value = [mock_news]
+    # Async version used by ResearchState._execute_research
+    mock.get_news_async = AsyncMock(return_value=[mock_news])
 
     mock.get_options_expirations.return_value = ["2025-02-21", "2025-03-21"]
     mock.get_options_chain.return_value = {"calls": None, "puts": None}
+    # Async versions for options
+    mock.get_options_expirations_async = AsyncMock(return_value=["2025-02-21", "2025-03-21"])
+    mock.get_options_chain_async = AsyncMock(return_value={"calls": None, "puts": None})
 
     import pandas as pd
 
@@ -83,6 +95,8 @@ def mock_market_data_service():
         index=pd.date_range("2025-01-01", periods=3, freq="D"),
     )
     mock.get_price_history.return_value = mock_history
+    # Async version
+    mock.get_price_history_async = AsyncMock(return_value=mock_history)
 
     return mock
 
@@ -160,6 +174,7 @@ class TestResearchWorkflowComplete:
         mock_synthesis_service,
     ):
         mock_market_data_service.get_ticker_info.return_value = None
+        mock_market_data_service.get_ticker_info_async = AsyncMock(return_value=None)
 
         with patch("phinan.services.services") as mock_services:
             mock_services.market_data = mock_market_data_service
@@ -315,6 +330,7 @@ class TestResearchWorkflowEdgeCases:
         mock_volatility_service,
     ):
         mock_market_data_service.get_news.return_value = []
+        mock_market_data_service.get_news_async = AsyncMock(return_value=[])
 
         with patch("phinan.services.services") as mock_services:
             mock_services.market_data = mock_market_data_service
@@ -366,7 +382,7 @@ class TestResearchWorkflowEdgeCases:
             asyncio.get_event_loop().run_until_complete(run_research())
 
             assert state.selected_ticker == "AAPL"
-            mock_market_data_service.get_ticker_info.assert_called_with("AAPL")
+            mock_market_data_service.get_ticker_info_async.assert_called_with("AAPL")
 
 
 @pytest.mark.e2e
@@ -450,6 +466,7 @@ class TestResearchWorkflowStateManagement:
             mock_info_msft.target_price = 450.00
             mock_info_msft.num_analysts = 45
             mock_market_data_service.get_ticker_info.return_value = mock_info_msft
+            mock_market_data_service.get_ticker_info_async = AsyncMock(return_value=mock_info_msft)
 
             state.ticker_input = "MSFT"
             asyncio.get_event_loop().run_until_complete(run_research())

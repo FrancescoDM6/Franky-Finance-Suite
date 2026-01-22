@@ -228,7 +228,8 @@ class SynthesisService:
                 options_expiration=context.options_expiration,
             )
 
-            response = self._get_llm().complete(prompt)
+            # Use task_type for model cascading - research_synthesis uses the most capable model
+            response = self._get_llm().complete(prompt, task_type="research_synthesis")
 
             # Cache the result with context hash
             self._cache_synthesis(context.ticker, "synthesis_full", response, context_hash)
@@ -245,6 +246,18 @@ class SynthesisService:
                 success=False,
                 error=str(e),
             )
+
+    async def generate_research_synthesis_async(
+        self, context: ResearchContext, force_refresh: bool = False
+    ) -> SynthesisResult:
+        """Async wrapper for generate_research_synthesis.
+
+        Runs the synchronous LLM call in a thread pool to avoid blocking
+        the event loop during the 5-10+ second synthesis generation.
+        """
+        from ..core.async_utils import run_sync
+
+        return await run_sync(self.generate_research_synthesis, context, force_refresh)
 
     def generate_from_prompt(self, prompt: str) -> SynthesisResult:
         """Generate synthesis from a custom prompt.

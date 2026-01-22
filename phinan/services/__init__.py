@@ -59,10 +59,10 @@ class ServiceRegistry:
 
     @cached_property
     def sentiment(self) -> "SentimentService":
-        """Sentiment analysis service (FinBERT)."""
+        """Sentiment analysis service (TF-IDF + Logistic Regression)."""
         from .sentiment import SentimentService
 
-        return SentimentService()
+        return SentimentService(llm_service=self.llm)
 
     @cached_property
     def volatility(self) -> "VolatilityService":

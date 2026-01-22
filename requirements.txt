@@ -18,6 +18,13 @@ google-generativeai>=0.8.0
 
 # Market Data
 yfinance>=0.2.35
+openbb>=4.6.0
+
+# ML (Lightweight sentiment)
+scikit-learn>=1.3.0
+datasets>=2.14.0
+joblib>=1.3.0
+
 
 # Configuration
 pydantic>=2.0.0
@@ -39,6 +46,13 @@ httpx>=0.28.0
 beautifulsoup4>=4.13.0
 requests>=2.32.0
 aiohttp>=3.9.0
+
+# Monitoring
+prometheus-client>=0.20.0
+psutil>=5.9.0
+
+# Performance (2-4x event loop improvement)
+uvloop>=0.21.0; sys_platform != "win32"  # Unix only
 
 # Required by reflex
 orjson>=3.10.0
