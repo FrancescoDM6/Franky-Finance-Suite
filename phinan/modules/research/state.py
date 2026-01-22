@@ -1035,7 +1035,9 @@ class ResearchState(rx.State):
                 )
 
             self.price_history = history_data
-        except Exception:
+            self.price_history = []
+        except Exception as e:
+            logger.warning("Error fetching price history for %s: %s", self.selected_ticker, e)
             self.price_history = []
 
     def _compute_quality_check(self):
