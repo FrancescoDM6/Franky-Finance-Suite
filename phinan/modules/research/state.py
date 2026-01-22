@@ -840,9 +840,11 @@ class ResearchState(rx.State):
             self.loading_stage = "Loading Options & Charts..."
             yield
 
-            # Use TaskGroup for structured concurrency
+            # Fetch options data first (accesses UserContextState, must be sequential)
+            await self._fetch_options_data()
+
+            # Use TaskGroup for remaining concurrent tasks
             async with asyncio.TaskGroup() as tg:
-                tg.create_task(self._fetch_options_data())
                 tg.create_task(self._fetch_volatility_data_safe())
                 tg.create_task(self._fetch_price_history())
             yield
