@@ -1,15 +1,16 @@
 """Home page / Dashboard with Phin Daily Brief."""
 
+import logging
 from datetime import datetime
-from typing import Any
 
 import reflex as rx
 
 from ..components.layout import main_layout
-from ..state.app import AppState
 from ..state.user_context import UserContextState
 from ..modules.portfolio.state import PortfolioState
 from .prompts import build_daily_brief_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class DailyBriefState(rx.State):
@@ -20,6 +21,7 @@ class DailyBriefState(rx.State):
     brief_error: str = ""
     brief_generated_at: str = ""
     _brief_date: str = ""  # Track which date brief was generated for
+    loading_status: str = "Generating your brief..."  # For Thinking UI pattern
 
     # News alerts for holdings
     news_alerts: list[dict] = []
@@ -47,6 +49,7 @@ class DailyBriefState(rx.State):
 
         self.brief_loading = True
         self.brief_error = ""
+        self.loading_status = "Initializing..."
         yield
 
         try:
@@ -59,6 +62,8 @@ class DailyBriefState(rx.State):
             profile_key = user_ctx.active_profile
 
             # Build position summary
+            self.loading_status = "Fetching portfolio data..."
+            yield
             position_lines = []
             for pos in portfolio.positions[:5]:
                 sign = "+" if pos.gain_loss_percent >= 0 else ""
@@ -79,17 +84,22 @@ class DailyBriefState(rx.State):
             movers_summary = "\n".join(movers_lines) if movers_lines else ""
 
             # Build watchlist summary
+            self.loading_status = "Fetching watchlist data..."
+            yield
             watchlist_lines = []
             for symbol in user_ctx.watchlist[:5]:
                 try:
                     info = services.market_data.get_ticker_info(symbol)
                     if info:
                         watchlist_lines.append(f"- {symbol}: ${info.current_price:.2f}")
-                except Exception:
+                except Exception as e:
+                    logger.warning("Failed to fetch watchlist info for %s: %s", symbol, e)
                     continue
             watchlist_summary = "\n".join(watchlist_lines) if watchlist_lines else ""
 
             # Fetch news for portfolio holdings
+            self.loading_status = "Fetching news for holdings..."
+            yield
             news_lines = []
             self.news_alerts = []
             for ticker in portfolio.position_tickers[:5]:
@@ -103,16 +113,19 @@ class DailyBriefState(rx.State):
                             "publisher": item.publisher,
                             "link": item.link,
                         })
-                except Exception:
+                except Exception as e:
+                    logger.warning("Failed to fetch news for %s: %s", ticker, e)
                     continue
             news_summary = "\n".join(news_lines[:6]) if news_lines else ""
 
             # Check if LLM is available
             if not services.llm.health_check():
+                logger.info("LLM unavailable, using fallback brief.")
                 self.brief_content = self._build_fallback_brief(
                     profile_name, portfolio, user_ctx
                 )
                 self.brief_generated_at = datetime.now().strftime("%I:%M %p")
+                self._brief_date = today  # Prevent refetching on every page load
                 return
 
             # Build prompt
@@ -129,6 +142,8 @@ class DailyBriefState(rx.State):
             )
 
             # Call LLM
+            self.loading_status = "Generating summary with AI..."
+            yield
             response = services.llm.complete(prompt)
             self.brief_content = response
             self.brief_generated_at = datetime.now().strftime("%I:%M %p")
@@ -136,7 +151,7 @@ class DailyBriefState(rx.State):
 
         except Exception as e:
             self.brief_error = f"Error generating brief: {str(e)}"
-            print(f"Daily brief error: {e}")
+            logger.error("Daily brief error: %s", e, exc_info=True)
         finally:
             self.brief_loading = False
 
@@ -224,7 +239,7 @@ def daily_brief_card() -> rx.Component:
                 rx.center(
                     rx.vstack(
                         rx.spinner(size="2"),
-                        rx.text("Generating your brief...", size="1", color_scheme="gray"),
+                        rx.text(DailyBriefState.loading_status, size="1", color_scheme="gray"),
                         spacing="2",
                         align="center",
                     ),

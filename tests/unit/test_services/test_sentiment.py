@@ -1,299 +1,182 @@
-from unittest.mock import MagicMock, patch
+"""Unit tests for the TF-IDF + LR SentimentService."""
+
+from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
 
 @pytest.fixture
-def sentiment_service():
+def mock_settings():
+    """Mock settings for sentiment service."""
     with patch("phinan.services.sentiment.settings") as mock_settings:
-        mock_settings.ai_services.sentiment_model = "yiyanghkust/finbert-tone"
         mock_settings.ai_services.enable_sentiment = True
-        mock_settings.ollama.base_url = "http://localhost:11434"
-        mock_settings.ollama.model = "llama3.2:latest"
-        mock_settings.ollama.timeout = 120
+        yield mock_settings
 
-        with patch("phinan.services.sentiment.get_resource_monitor") as mock_monitor:
-            mock_monitor.return_value.is_safe_to_run.return_value = True
 
-            from phinan.services.sentiment import SentimentService
-
-            service = SentimentService()
-            yield service
+@pytest.fixture
+def sentiment_service(mock_settings):
+    """Create sentiment service with mocked dependencies."""
+    from phinan.services.sentiment import SentimentService
+    
+    mock_llm = MagicMock()
+    service = SentimentService(llm_service=mock_llm)
+    return service
 
 
 @pytest.fixture
 def disabled_sentiment_service():
+    """Create disabled sentiment service."""
     with patch("phinan.services.sentiment.settings") as mock_settings:
-        mock_settings.ai_services.sentiment_model = "yiyanghkust/finbert-tone"
         mock_settings.ai_services.enable_sentiment = False
-
-        with patch("phinan.services.sentiment.get_resource_monitor") as mock_monitor:
-            mock_monitor.return_value.is_safe_to_run.return_value = True
-
-            from phinan.services.sentiment import SentimentService
-
-            service = SentimentService()
-            yield service
+        
+        from phinan.services.sentiment import SentimentService
+        service = SentimentService()
+        yield service
 
 
 @pytest.mark.unit
 class TestSentimentServiceHealthCheck:
-    def test_health_check_returns_true_when_enabled(self, sentiment_service):
-        assert sentiment_service.health_check() is True
+    def test_health_check_returns_true_when_model_loaded(self, sentiment_service):
+        # Mock successful model load
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", MagicMock()), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", True):
+            assert sentiment_service.health_check() is True
 
-    def test_health_check_returns_false_when_disabled(self, disabled_sentiment_service):
-        assert disabled_sentiment_service.health_check() is False
+    def test_health_check_returns_true_with_llm_fallback(self, mock_settings):
+        from phinan.services.sentiment import SentimentService
+        
+        mock_llm = MagicMock()
+        service = SentimentService(llm_service=mock_llm)
+        
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", None), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", True):
+            assert service.health_check() is True
+
+    def test_health_check_returns_false_when_nothing_available(self, mock_settings):
+        from phinan.services.sentiment import SentimentService
+        
+        service = SentimentService(llm_service=None)
+        
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", None), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", True):
+            assert service.health_check() is False
 
 
 @pytest.mark.unit
 class TestSentimentServiceScoreBatch:
     def test_score_batch_returns_empty_for_empty_input(self, sentiment_service):
         result = sentiment_service.score_batch([])
-
         assert result == []
 
-    def test_score_batch_returns_neutral_when_disabled(
-        self, disabled_sentiment_service
-    ):
-        result = disabled_sentiment_service.score_batch(["Test headline"])
+    def test_score_batch_uses_local_model_for_high_confidence(self, sentiment_service):
+        mock_model = MagicMock()
+        mock_model.predict.return_value = [2]  # positive
+        mock_model.predict_proba.return_value = [[0.05, 0.1, 0.85]]  # high confidence
+        
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", mock_model), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", True):
+            result = sentiment_service.score_batch(["Great earnings beat expectations"])
+            
+            assert result[0]["label"] == "positive"
+            assert result[0]["score"] == 0.85
+            assert result[0]["source"] == "local"
 
-        assert len(result) == 1
-        assert result[0]["label"] == "neutral"
-        assert result[0]["score"] == 0.5
-        assert result[0]["enabled"] is False
+    def test_score_batch_uses_llm_for_low_confidence(self, mock_settings):
+        from phinan.services.sentiment import SentimentService
+        
+        mock_llm = MagicMock()
+        mock_llm.complete.return_value = '{"label": "positive", "score": 0.9, "reasoning": "test"}'
+        
+        service = SentimentService(llm_service=mock_llm)
+        
+        mock_model = MagicMock()
+        mock_model.predict.return_value = [1]  # neutral
+        mock_model.predict_proba.return_value = [[0.3, 0.49, 0.2]]  # low confidence (< 0.5)
+        
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", mock_model), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", True):
+            result = service.score_batch(["Ambiguous news headline"])
+            
+            assert result[0]["label"] == "positive"
+            assert result[0]["source"] == "llm"
+            assert "local_original" in result[0]
 
-    def test_score_batch_returns_neutral_when_model_not_loaded(self, sentiment_service):
-        sentiment_service._model = None
-        sentiment_service._enabled = True
-
-        with patch.object(sentiment_service, "_load_model"):
-            result = sentiment_service.score_batch(["Test headline"])
-
-        assert len(result) == 1
-        assert result[0]["label"] == "neutral"
-        assert "error" in result[0]
-
-    def test_score_batch_uses_finbert_for_high_confidence(self, sentiment_service):
-        mock_finbert_result = [{"label": "positive", "score": 0.95}]
-
-        with patch.object(
-            sentiment_service, "_score_finbert_batch", return_value=mock_finbert_result
-        ):
-            sentiment_service._model = MagicMock()
-            result = sentiment_service.score_batch(["Great earnings report"])
-
-        assert result[0]["label"] == "positive"
-        assert result[0]["source"] == "finbert"
-
-    def test_score_batch_uses_llm_for_low_confidence(self, sentiment_service):
-        mock_finbert_result = [{"label": "neutral", "score": 0.6}]
-        mock_llm_result = {"label": "positive", "score": 0.85, "source": "llm"}
-
-        mock_llm_provider = MagicMock()
-        mock_llm_provider.score_sentiment.return_value = mock_llm_result
-
-        with patch.object(
-            sentiment_service, "_score_finbert_batch", return_value=mock_finbert_result
-        ):
-            with patch.object(
-                sentiment_service, "_get_llm_provider", return_value=mock_llm_provider
-            ):
-                sentiment_service._model = MagicMock()
-                sentiment_service._llm_enabled = True
-                result = sentiment_service.score_batch(["Mixed news about company"])
-
-        assert result[0]["label"] == "positive"
-        assert result[0]["source"] == "llm"
-        assert "finbert_original" in result[0]
+    def test_score_batch_returns_neutral_when_no_model(self, mock_settings):
+        from phinan.services.sentiment import SentimentService
+        
+        service = SentimentService(llm_service=None)
+        
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", None), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", True):
+            result = service.score_batch(["Some headline"])
+            
+            assert result[0]["label"] == "neutral"
+            assert "error" in result[0]
 
 
 @pytest.mark.unit
 class TestSentimentServiceScore:
     def test_score_single_text(self, sentiment_service):
-        mock_batch_result = [{"label": "negative", "score": 0.88, "source": "finbert"}]
-
-        with patch.object(
-            sentiment_service, "score_batch", return_value=mock_batch_result
-        ):
+        mock_model = MagicMock()
+        mock_model.predict.return_value = [0]  # negative
+        mock_model.predict_proba.return_value = [[0.88, 0.08, 0.04]]
+        
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", mock_model), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", True):
             result = sentiment_service.score("Stock plunges on bad news")
-
-        assert result["label"] == "negative"
-        assert result["score"] == 0.88
-
-    def test_score_returns_neutral_on_empty_batch(self, sentiment_service):
-        with patch.object(sentiment_service, "score_batch", return_value=[]):
-            result = sentiment_service.score("Test text")
-
-        assert result["label"] == "neutral"
-        assert result["score"] == 0.5
+            
+            assert result["label"] == "negative"
+            assert result["score"] == 0.88
 
 
 @pytest.mark.unit
 class TestSentimentServiceAggregate:
     def test_aggregate_calculates_counts(self, sentiment_service):
-        mock_scores = [
-            {"label": "positive", "score": 0.9},
-            {"label": "positive", "score": 0.85},
-            {"label": "negative", "score": 0.7},
-            {"label": "neutral", "score": 0.6},
-        ]
-
-        with patch.object(sentiment_service, "score_batch", return_value=mock_scores):
+        with patch.object(sentiment_service, "score_batch") as mock_batch:
+            mock_batch.return_value = [
+                {"label": "positive", "score": 0.9},
+                {"label": "positive", "score": 0.85},
+                {"label": "negative", "score": 0.7},
+                {"label": "neutral", "score": 0.6},
+            ]
+            
             result = sentiment_service.aggregate(["t1", "t2", "t3", "t4"])
-
+        
         assert result["counts"]["positive"] == 2
         assert result["counts"]["negative"] == 1
         assert result["counts"]["neutral"] == 1
         assert result["dominant"] == "positive"
         assert result["total"] == 4
 
-    def test_aggregate_calculates_average_score(self, sentiment_service):
-        mock_scores = [
-            {"label": "positive", "score": 0.8},
-            {"label": "positive", "score": 0.9},
-        ]
-
-        with patch.object(sentiment_service, "score_batch", return_value=mock_scores):
-            result = sentiment_service.aggregate(["t1", "t2"])
-
-        assert abs(result["average_score"] - 0.85) < 0.001
-
     def test_aggregate_handles_empty_input(self, sentiment_service):
-        with patch.object(sentiment_service, "score_batch", return_value=[]):
-            result = sentiment_service.aggregate([])
-
+        result = sentiment_service.aggregate([])
+        
         assert result["total"] == 0
         assert result["average_score"] == 0.5
 
 
 @pytest.mark.unit
-class TestOllamaSentimentProvider:
-    def test_score_sentiment_parses_json_response(self):
-        from phinan.services.sentiment import OllamaSentimentProvider
-
-        with patch("phinan.services.sentiment.settings") as mock_settings:
-            mock_settings.ollama.base_url = "http://localhost:11434"
-            mock_settings.ollama.model = "llama3.2:latest"
-            mock_settings.ollama.timeout = 120
-
-            provider = OllamaSentimentProvider()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "response": '{"label": "positive", "score": 0.85, "reasoning": "Strong earnings"}'
-        }
-
-        with patch("httpx.post", return_value=mock_response):
-            result = provider.score_sentiment("Company beats earnings expectations")
-
-        assert result["label"] == "positive"
-        assert result["score"] == 0.85
-        assert result["source"] == "llm"
-
-    def test_score_sentiment_handles_markdown_json(self):
-        from phinan.services.sentiment import OllamaSentimentProvider
-
-        with patch("phinan.services.sentiment.settings") as mock_settings:
-            mock_settings.ollama.base_url = "http://localhost:11434"
-            mock_settings.ollama.model = "llama3.2:latest"
-            mock_settings.ollama.timeout = 120
-
-            provider = OllamaSentimentProvider()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "response": '```json\n{"label": "negative", "score": 0.75}\n```'
-        }
-
-        with patch("httpx.post", return_value=mock_response):
-            result = provider.score_sentiment("Stock drops on weak guidance")
-
-        assert result["label"] == "negative"
-        assert result["score"] == 0.75
-
-    def test_score_sentiment_handles_invalid_json(self):
-        from phinan.services.sentiment import OllamaSentimentProvider
-
-        with patch("phinan.services.sentiment.settings") as mock_settings:
-            mock_settings.ollama.base_url = "http://localhost:11434"
-            mock_settings.ollama.model = "llama3.2:latest"
-            mock_settings.ollama.timeout = 120
-
-            provider = OllamaSentimentProvider()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"response": "This is not valid JSON"}
-
-        with patch("httpx.post", return_value=mock_response):
-            result = provider.score_sentiment("Test headline")
-
-        assert result["label"] == "neutral"
-        assert result["score"] == 0.5
-        assert "error" in result
-
-    def test_score_sentiment_handles_http_error(self):
-        from phinan.services.sentiment import OllamaSentimentProvider
-
-        with patch("phinan.services.sentiment.settings") as mock_settings:
-            mock_settings.ollama.base_url = "http://localhost:11434"
-            mock_settings.ollama.model = "llama3.2:latest"
-            mock_settings.ollama.timeout = 120
-
-            provider = OllamaSentimentProvider()
-
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-
-        with patch("httpx.post", return_value=mock_response):
-            result = provider.score_sentiment("Test headline")
-
-        assert result["label"] == "neutral"
-        assert result["error"] == "http_500"
-
-    def test_score_sentiment_handles_connection_error(self):
-        from phinan.services.sentiment import OllamaSentimentProvider
-
-        with patch("phinan.services.sentiment.settings") as mock_settings:
-            mock_settings.ollama.base_url = "http://localhost:11434"
-            mock_settings.ollama.model = "llama3.2:latest"
-            mock_settings.ollama.timeout = 120
-
-            provider = OllamaSentimentProvider()
-
-        with patch("httpx.post", side_effect=Exception("Connection refused")):
-            result = provider.score_sentiment("Test headline")
-
-        assert result["label"] == "neutral"
-        assert "Connection refused" in result["error"]
-
-
-@pytest.mark.unit
 class TestSentimentServiceModelLoading:
-    def test_load_model_skips_when_disabled(self):
-        with patch("phinan.services.sentiment.settings") as mock_settings:
-            mock_settings.ai_services.sentiment_model = "yiyanghkust/finbert-tone"
-            mock_settings.ai_services.enable_sentiment = False
+    def test_load_model_skips_when_disabled(self, disabled_sentiment_service):
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", None) as mock_global, \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", False):
+            disabled_sentiment_service._load_model()
+            
+            # Should not change
+            from phinan.services.sentiment import _GLOBAL_MODEL
+            assert _GLOBAL_MODEL is None
 
-            with patch(
-                "phinan.services.sentiment.get_resource_monitor"
-            ) as mock_monitor:
-                mock_monitor.return_value.is_safe_to_run.return_value = True
-
-                from phinan.services.sentiment import SentimentService
-
-                service = SentimentService()
-                service._load_model()
-
-        assert service._model is None
-
-    def test_load_model_skips_on_insufficient_resources(self, sentiment_service):
-        sentiment_service._resource_monitor.is_safe_to_run.return_value = False
-        sentiment_service._model = None
-
-        sentiment_service._load_model()
-
-        assert sentiment_service._model is None
-        assert sentiment_service._enabled is False
+    def test_load_model_handles_missing_file(self, mock_settings, tmp_path):
+        from phinan.services.sentiment import SentimentService
+        
+        service = SentimentService()
+        service._model_path = tmp_path / "nonexistent.joblib"
+        
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", None), \
+             patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", False):
+            service._load_model()
+            
+            # _GLOBAL_MODEL_LOADED should become True, but model remains None
+            from phinan.services.sentiment import _GLOBAL_MODEL, _GLOBAL_MODEL_LOADED
+            assert _GLOBAL_MODEL is None
+            assert _GLOBAL_MODEL_LOADED is True

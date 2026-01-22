@@ -4,6 +4,7 @@ Use for: forecasting future volatility, improving range estimates,
 assessing if options are cheap/expensive relative to expected vol.
 """
 
+from __future__ import annotations
 from typing import Optional, Union, TYPE_CHECKING
 
 # Lazy imports for heavy dependencies (numpy, pandas, scipy)
@@ -28,10 +29,17 @@ class VolatilityService:
         if not self._enabled:
             return False
         try:
+            # Use a flag to track if arch was already imported
+            import sys
+            if 'arch' in sys.modules:
+                return True
+            # Try importing arch - but this can be slow on first import
             import arch
-
             return True
         except ImportError:
+            return False
+        except Exception:
+            # Any other error means the service is unavailable
             return False
 
     def forecast(

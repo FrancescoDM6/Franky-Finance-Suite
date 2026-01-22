@@ -3,7 +3,6 @@
 import reflex as rx
 
 from ...components.layout import main_layout
-from ...state.app import AppState
 from ...state.user_context import UserContextState
 from .state import ResearchState
 from .components import quality_card, analyst_card, range_card, news_card, chart_card, options_card, volatility_card
@@ -152,7 +151,37 @@ def synthesis_card() -> rx.Component:
                 ),
                 width="100%",
             ),
-            rx.fragment(),
+            # Show placeholder if generation failed but we have results
+            rx.cond(
+                ResearchState.has_results,
+                rx.card(
+                    rx.vstack(
+                         rx.hstack(
+                            rx.icon("sparkles", size=16, color="var(--gray-9)"),
+                            rx.heading("AI Analysis", size="4", color_scheme="gray"),
+                            rx.spacer(),
+                            width="100%",
+                            align="center",
+                        ),
+                         rx.text(
+                            rx.cond(
+                                ResearchState.synthesis_error != "",
+                                ResearchState.synthesis_error,
+                                "Analysis unavailable. Click 'Research' to try again.",
+                            ),
+                            size="2",
+                            color_scheme="gray",
+                            font_style="italic",
+                        ),
+                        spacing="2",
+                        width="100%",
+                    ),
+                    width="100%",
+                    variant="surface",  # lighter look for empty state
+                    color_scheme="gray",
+                ),
+                rx.fragment(),
+            ),
         ),
     )
 
@@ -217,8 +246,6 @@ def my_position_card() -> rx.Component:
 def overview_tab() -> rx.Component:
     """Overview tab content with quality and analyst cards."""
     return rx.vstack(
-        synthesis_card(),
-        my_position_card(),
         rx.cond(
             ResearchState.llm_synthesis == "",
             insights_card(),
@@ -354,6 +381,8 @@ def research_results() -> rx.Component:
             # Has results - show research data
             rx.vstack(
                 ticker_header(),
+                synthesis_card(),
+                my_position_card(),
                 rx.divider(),
                 research_tabs(),
                 spacing="4",

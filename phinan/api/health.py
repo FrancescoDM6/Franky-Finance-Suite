@@ -84,7 +84,9 @@ def check_ollama() -> ServiceStatus:
         models = client.list()
         elapsed = (time.perf_counter() - start) * 1000
 
-        model_names = [m.get("name", m.get("model", "unknown")) for m in models.get("models", [])]
+        model_names = [
+            m.get("name", m.get("model", "unknown")) for m in models.get("models", [])
+        ]
 
         return ServiceStatus(
             name="ollama",
@@ -419,6 +421,7 @@ async def readiness():
         return {"status": "ready", "database": db.status, "llm": "available"}
     else:
         from fastapi.responses import JSONResponse
+
         return JSONResponse(
             status_code=503,
             content={
@@ -428,3 +431,16 @@ async def readiness():
                 "ollama": ollama.status,
             },
         )
+
+
+@health_api.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus metrics endpoint for scraping."""
+    from fastapi.responses import Response
+    from ..core.metrics import metrics
+
+    content = metrics.generate_latest()
+    return Response(
+        content=content,
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )

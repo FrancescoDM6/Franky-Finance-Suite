@@ -33,6 +33,8 @@ def mock_market_data():
     mock_info.target_price = 200.00
     mock_info.num_analysts = 40
     mock.get_ticker_info.return_value = mock_info
+    # Async version used by ResearchState._execute_research
+    mock.get_ticker_info_async = AsyncMock(return_value=mock_info)
 
     mock_range = MagicMock()
     mock_range.period = "3mo"
@@ -41,8 +43,10 @@ def mock_market_data():
     mock_range.current = 175.50
     mock_range.percent_of_range = 0.35
     mock.get_price_range.return_value = mock_range
+    # Async version
+    mock.get_price_range_async = AsyncMock(return_value=mock_range)
 
-    mock.get_analyst_details.return_value = {
+    analyst_details = {
         "recommendation_counts": {
             "strong_buy": 15,
             "buy": 18,
@@ -58,6 +62,9 @@ def mock_market_data():
         },
         "recent_changes": [],
     }
+    mock.get_analyst_details.return_value = analyst_details
+    # Async version
+    mock.get_analyst_details_async = AsyncMock(return_value=analyst_details)
 
     mock_news_item = MagicMock()
     mock_news_item.title = "Apple Reports Record Earnings"
@@ -66,6 +73,8 @@ def mock_market_data():
     mock_news_item.link = "https://example.com/news/1"
     mock_news_item.summary = "Apple Inc reported record quarterly revenue."
     mock.get_news.return_value = [mock_news_item]
+    # Async version
+    mock.get_news_async = AsyncMock(return_value=[mock_news_item])
 
     mock.get_options_expirations.return_value = [
         "2025-02-21",
@@ -73,6 +82,9 @@ def mock_market_data():
         "2025-04-18",
     ]
     mock.get_options_chain.return_value = {"calls": None, "puts": None}
+    # Async versions
+    mock.get_options_expirations_async = AsyncMock(return_value=["2025-02-21", "2025-03-21", "2025-04-18"])
+    mock.get_options_chain_async = AsyncMock(return_value={"calls": None, "puts": None})
 
     import pandas as pd
 
@@ -87,6 +99,8 @@ def mock_market_data():
         index=pd.date_range("2025-01-01", periods=3, freq="D"),
     )
     mock.get_price_history.return_value = mock_df
+    # Async version
+    mock.get_price_history_async = AsyncMock(return_value=mock_df)
 
     return mock
 
@@ -170,6 +184,7 @@ class TestResearchStateAsyncWorkflow:
     ):
         with patch("phinan.services.services") as mock_services:
             mock_market_data.get_ticker_info.return_value = None
+            mock_market_data.get_ticker_info_async = AsyncMock(return_value=None)
             mock_services.db = mock_db
             mock_services.market_data = mock_market_data
             mock_services.sentiment = mock_sentiment

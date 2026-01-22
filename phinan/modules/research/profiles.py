@@ -65,29 +65,29 @@ def get_papi_insights(ticker_info: dict, price_range: dict, analyst_data: dict) 
     # Dividend yield for margin strategy (target > 3%)
     div_yield = ticker_info.get("dividend_yield", 0) or 0
     if div_yield >= 0.05:
-        insights.append(f"✓ Strong dividend ({div_yield:.1%}) - exceeds 3% margin target")
+        insights.append(f" Strong dividend ({div_yield:.1%}) - exceeds 3% margin target")
     elif div_yield >= 0.03:
-        insights.append(f"✓ Dividend ({div_yield:.1%}) meets margin strategy threshold")
+        insights.append(f" Dividend ({div_yield:.1%}) meets margin strategy threshold")
     elif div_yield > 0:
-        insights.append(f"⚠️ Dividend ({div_yield:.1%}) below 3% margin target")
+        insights.append(f" Dividend ({div_yield:.1%}) below 3% margin target")
     else:
-        insights.append("⚠️ No dividend - not ideal for margin strategy")
+        insights.append(" No dividend - not ideal for margin strategy")
     
     # Range position for covered calls
     pct = price_range.get("percent_of_range", 0.5)
     if pct > 0.75:
-        insights.append("✓ Near range high - good candidate for selling covered calls")
+        insights.append(" Near range high - good candidate for selling covered calls")
     elif pct < 0.25:
-        insights.append("✓ Near range low - potential put-buying opportunity for entry")
+        insights.append(" Near range low - potential put-buying opportunity for entry")
     else:
         insights.append(f"Mid-range ({pct:.0%}) - wait for better entry/exit point")
     
     # Analyst consensus
     rating = analyst_data.get("rating", "").lower() if analyst_data.get("rating") else ""
     if rating in ["buy", "strong buy"]:
-        insights.append(f"✓ Analyst consensus: {rating.title()} - supports ownership thesis")
+        insights.append(f" Analyst consensus: {rating.title()} - supports ownership thesis")
     elif rating in ["sell", "strong sell"]:
-        insights.append(f"⚠️ Analyst consensus: {rating.title()} - reconsider ownership")
+        insights.append(f" Analyst consensus: {rating.title()} - reconsider ownership")
     
     return insights
 
@@ -101,16 +101,16 @@ def get_tio_insights(ticker_info: dict, price_range: dict, recent_news: list, an
     
     # News flow momentum
     if len(recent_news) >= 3:
-        insights.append("📊 High news volume - active story, increased volatility likely")
+        insights.append(" High news volume - active story, increased volatility likely")
     elif len(recent_news) == 0:
         insights.append("Low news flow - may lack near-term catalyst")
     
     # Range position for directional plays
     pct = price_range.get("percent_of_range", 0.5)
     if pct < 0.3:
-        insights.append("📈 Low in range - potential bullish setup for calls")
+        insights.append(" Low in range - potential bullish setup for calls")
     elif pct > 0.7:
-        insights.append("📉 High in range - consider puts or wait for pullback")
+        insights.append(" High in range - consider puts or wait for pullback")
     else:
         insights.append(f"Mid-range ({pct:.0%}) - look for breakout confirmation")
     
@@ -120,9 +120,9 @@ def get_tio_insights(ticker_info: dict, price_range: dict, recent_news: list, an
     if target and current:
         upside = (target - current) / current
         if upside > 0.15:
-            insights.append(f"✓ Analyst target implies {upside:.0%} upside - supports bullish thesis")
+            insights.append(f" Analyst target implies {upside:.0%} upside - supports bullish thesis")
         elif upside < -0.10:
-            insights.append(f"⚠️ Analyst target implies {abs(upside):.0%} downside")
+            insights.append(f" Analyst target implies {abs(upside):.0%} downside")
     
     # Number of analysts coverage
     num_analysts = analyst_data.get("num_analysts", 0)

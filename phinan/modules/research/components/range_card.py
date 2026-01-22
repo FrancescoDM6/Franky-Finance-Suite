@@ -27,7 +27,7 @@ def range_card() -> rx.Component:
                     rx.text(
                         rx.cond(
                             ResearchState.price_range.get("high"),
-                            rx.text("$", ResearchState.price_range.get("high")),
+                            rx.text("$", ResearchState.fmt_range_high),
                             "N/A",
                         ),
                         size="3",
@@ -40,7 +40,7 @@ def range_card() -> rx.Component:
                     rx.text(
                         rx.cond(
                             ResearchState.price_range.get("current"),
-                            rx.text("$", ResearchState.price_range.get("current")),
+                            rx.text("$", ResearchState.fmt_range_current),
                             "N/A",
                         ),
                         size="3",
@@ -54,7 +54,7 @@ def range_card() -> rx.Component:
                     rx.text(
                         rx.cond(
                             ResearchState.price_range.get("low"),
-                            rx.text("$", ResearchState.price_range.get("low")),
+                            rx.text("$", ResearchState.fmt_range_low),
                             "N/A",
                         ),
                         size="3",
@@ -78,8 +78,8 @@ def range_card() -> rx.Component:
                 rx.cond(
                     ResearchState.price_range.get("percent_of_range"),
                     rx.text(
-                        (ResearchState.price_range.get("percent_of_range", 0).to(float) * 100).to(int),
-                        "% of range",
+                        ResearchState.fmt_range_percent,
+                        " of range",
                     ),
                     "N/A",
                 ),

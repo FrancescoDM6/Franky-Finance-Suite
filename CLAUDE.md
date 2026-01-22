@@ -1,6 +1,7 @@
 # CLAUDE.md
 @AGENTS.md
 ## Before Starting ANY Task
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 
 1. ✅ Read `docs/REFLEX_REFERENCE.md` if task involves UI components
 2. ✅ Use `view` to check similar existing code
