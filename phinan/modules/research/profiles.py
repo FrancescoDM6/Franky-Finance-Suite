@@ -20,8 +20,8 @@ class UserProfile:
 
 
 PROFILES = {
-    "papi": UserProfile(
-        name="Papi",
+    "conservative": UserProfile(
+        name="Conservative",
         strategy_type="conservative",
         typical_timeframe="2_weeks",
         default_range_period="3mo",
@@ -29,8 +29,8 @@ PROFILES = {
         description="Options as entry/exit mechanism. Focus on quality stocks, "
         "dividend yield for margin strategy, covered calls near range high.",
     ),
-    "tio": UserProfile(
-        name="Tio",
+    "aggressive": UserProfile(
+        name="Aggressive",
         strategy_type="aggressive",
         typical_timeframe="1_2_months",
         default_range_period="6mo",
@@ -38,25 +38,25 @@ PROFILES = {
         description="Traditional risk-taking with deeper research. "
         "Longer timeframes, momentum-focused, uses structured notes for long-term.",
     ),
-    "franky": UserProfile(
-        name="Franky",
+    "standard": UserProfile(
+        name="Standard",
         strategy_type="learning",
         typical_timeframe="varies",
         default_range_period="6mo",
-        emphasis=["all"],  # Show everything while learning
-        description="Learning mode - show all data for comprehensive understanding. "
-        "Building systematic approach to beat Papi and Tio's returns.",
+        emphasis=["all"],  # Show everything for comprehensive understanding
+        description="Balanced mode - show all data for comprehensive understanding. "
+        "Building systematic approach with full visibility into all metrics.",
     ),
 }
 
 
 def get_profile(name: str) -> UserProfile:
-    """Get a profile by name, defaulting to Franky."""
-    return PROFILES.get(name.lower(), PROFILES["franky"])
+    """Get a profile by name, defaulting to Standard."""
+    return PROFILES.get(name.lower(), PROFILES["standard"])
 
 
-def get_papi_insights(ticker_info: dict, price_range: dict, analyst_data: dict) -> list[str]:
-    """Generate insights for Papi's conservative strategy.
+def get_conservative_insights(ticker_info: dict, price_range: dict, analyst_data: dict) -> list[str]:
+    """Generate insights for the Conservative strategy.
     
     Focuses on: dividend yields, range positioning for covered calls, quality metrics.
     """
@@ -92,8 +92,8 @@ def get_papi_insights(ticker_info: dict, price_range: dict, analyst_data: dict) 
     return insights
 
 
-def get_tio_insights(ticker_info: dict, price_range: dict, recent_news: list, analyst_data: dict) -> list[str]:
-    """Generate insights for Tio's aggressive strategy.
+def get_aggressive_insights(ticker_info: dict, price_range: dict, recent_news: list, analyst_data: dict) -> list[str]:
+    """Generate insights for the Aggressive strategy.
     
     Focuses on: momentum, news flow, analyst upgrades, directional opportunities.
     """
@@ -134,8 +134,8 @@ def get_tio_insights(ticker_info: dict, price_range: dict, recent_news: list, an
     return insights
 
 
-def get_franky_insights(ticker_info: dict, price_range: dict, recent_news: list, analyst_data: dict) -> list[str]:
-    """Generate balanced insights for learning.
+def get_standard_insights(ticker_info: dict, price_range: dict, recent_news: list, analyst_data: dict) -> list[str]:
+    """Generate balanced insights for comprehensive analysis.
     
     Shows key points from both strategies for educational comparison.
     """
@@ -161,4 +161,3 @@ def get_franky_insights(ticker_info: dict, price_range: dict, recent_news: list,
     insights.append(f"Recent news items: {len(recent_news)}")
     
     return insights
-

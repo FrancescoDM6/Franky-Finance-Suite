@@ -174,8 +174,16 @@ def positions_table() -> rx.Component:
         ),
         rx.center(
             rx.vstack(
-                rx.icon("briefcase", size=48, color="var(--gray-8)"),
-                rx.text("No positions yet", size="3", color_scheme="gray"),
+                # Custom Shark Fin Icon (Empty State)
+                rx.html(
+                    """
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--gray-8)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M 4 20 C 10 18 16 11 19 6 Q 23 13 20 20" />
+                        <polyline points="16 3 22 3 23 8" />
+                    </svg>
+                    """
+                ),
+                rx.text("Start deep dive", size="3", weight="bold", color_scheme="gray"),
                 rx.text(
                     "Add your first position to start tracking your portfolio",
                     size="2",

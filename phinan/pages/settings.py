@@ -18,19 +18,19 @@ def settings_content() -> rx.Component:
                 rx.heading("Profile", size="4"),
                 rx.text("Select your trading profile to customize the interface.", size="2", color_scheme="gray"),
                 rx.select(
-                    ["Papi", "Tio", "Franky"],
+                    ["Conservative", "Aggressive", "Standard"],
                     value=UserContextState.profile_display_name,
                     on_change=UserContextState.set_profile,
                     size="2",
                 ),
                 rx.text(
                     rx.cond(
-                        UserContextState.active_profile == "papi",
+                        UserContextState.active_profile == "conservative",
                         "Conservative strategy - Options as entry/exit mechanism, 2-week timeframe",
                         rx.cond(
-                            UserContextState.active_profile == "tio",
+                            UserContextState.active_profile == "aggressive",
                             "Aggressive strategy - Directional plays, 1-2 month timeframe",
-                            "Learning mode - All data visible for comprehensive understanding",
+                            "Standard mode - All data visible for comprehensive understanding",
                         ),
                     ),
                     size="1",

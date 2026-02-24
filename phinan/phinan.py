@@ -52,7 +52,7 @@ except Exception as e:
 import reflex as rx
 
 # Import pages to register them with Reflex
-from .pages import index, settings
+from .pages import index, settings, ui_demo
 from .modules.research import page as research_page
 from .modules.notes import page as notes_page
 from .modules.options import page as options_page
@@ -77,9 +77,9 @@ def on_load():
 
 app = rx.App(
     theme=rx.theme(
-        accent_color="blue",
-        gray_color="slate",
-        radius="medium",
+        accent_color="teal",
+        gray_color="sand",
+        radius="large",
     ),
     stylesheets=["/styles.css"],
     api_transformer=health_api,

@@ -35,6 +35,7 @@ def main_layout(*children) -> rx.Component:
         
         width="100%",
         height="100vh",
-        background="var(--gray-a2)",
+        background="var(--pfs-bg)",
+        color="var(--pfs-text)",
         overflow="hidden",  # Prevent window scroll
     )
