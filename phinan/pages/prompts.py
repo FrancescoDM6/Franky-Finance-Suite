@@ -40,9 +40,9 @@ Keep the tone conversational but professional. Be concise - this should take 30 
 
 # Profile-specific section titles
 PROFILE_SECTIONS = {
-    "papi": "Income Opportunities",
-    "tio": "Trading Opportunities",
-    "franky": "Learning Moment",
+    "conservative": "Income Opportunities",
+    "aggressive": "Trading Opportunities",
+    "standard": "Learning Moment",
 }
 
 

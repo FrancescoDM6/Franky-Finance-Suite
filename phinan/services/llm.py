@@ -10,9 +10,12 @@ Pattern: "LLM extracts, Python calculates"
 from datetime import date, datetime
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
+import logging
 
 from ..config.settings import settings
 from .circuit_breaker import get_circuit_breaker, with_timeout, DEFAULT_LLM_TIMEOUT
+
+logger = logging.getLogger(__name__)
 
 
 class LLMService:
@@ -58,7 +61,7 @@ class LLMService:
                 self._ollama_client = ollama.Client(host=self._ollama_base_url)
             except ImportError:
                 raise ImportError(
-                    "ollama package not installed. Run: pip install ollama"
+                    "Local AI fallback unavailable (ollama package not installed)."
                 )
         return self._ollama_client
 
@@ -128,11 +131,18 @@ class LLMService:
         if cascade_model:
             gemini_models = [cascade_model]
         else:
-            # Fallback chain: primary model -> alternate models -> Ollama
+            # Fallback chain ordered by capability, then by free-tier daily quota:
+            #   gemini-2.5-flash  (250 RPD)  - best quality flash
+            #   gemini-2.0-flash  (1,500 RPD) - very capable, highest quota
+            #   gemini-2.5-flash-lite (1,000 RPD) - lightweight 2.5
+            #   gemini-2.0-flash-lite (1,500 RPD) - cheapest, highest quota
+            # Total free-tier capacity: ~4,250 requests/day before Ollama fallback
             gemini_models = [
                 self._gemini_model_name,
                 "gemini-2.5-flash",
+                "gemini-2.0-flash",
                 "gemini-2.5-flash-lite",
+                "gemini-2.0-flash-lite",
             ]
         # Remove duplicates while preserving order
         seen = set()
@@ -149,14 +159,14 @@ class LLMService:
         ]
 
         if not available_models:
-            print(
+            logger.warning(
                 "All Gemini models daily quota exhausted, going directly to Ollama..."
             )
             try:
                 return self._chat_ollama(messages, system, None, tools)
             except Exception as ollama_error:
                 return {
-                    "content": f"All Gemini models exhausted for the day. Ollama error: {ollama_error}",
+                    "content": "AI analysis is temporarily unavailable — the daily API quota has been reached. Please try again tomorrow, or configure a local Ollama instance as a fallback.",
                     "error": True,
                 }
 
@@ -199,6 +209,7 @@ class LLMService:
                     "content": response.text,
                     "model": model_name,
                 }
+                logger.info("LLM response from %s (%d chars)", model_name, len(response.text or ""))
                 return result
 
             except Exception as e:
@@ -212,33 +223,61 @@ class LLMService:
                     if limit_type == "daily":
                         # Model is exhausted for the day - don't try again
                         self._daily_exhausted_models.add(model_name)
-                        print(
-                            f"⚠️ {model_name} DAILY quota exhausted (resets at midnight PT). Skipping for this session."
+                        logger.warning(
+                            "%s DAILY quota exhausted (resets at midnight PT). Skipping for this session.",
+                            model_name,
                         )
                     elif limit_type == "minute":
                         # Could retry after a minute, but we'll just move to next model
-                        print(
-                            f"Rate limited on {model_name} (per-minute), trying next model..."
+                        logger.warning(
+                            "Rate limited on %s (per-minute), trying next model...",
+                            model_name,
                         )
                     else:
-                        print(
-                            f"Rate limited on {model_name} (unknown type), trying next model..."
+                        logger.warning(
+                            "Rate limited on %s (type: %s), trying next model...",
+                            model_name,
+                            limit_type,
                         )
                     continue
                 else:
                     # For non-rate-limit errors, still try next model
-                    print(f"Error with {model_name}: {error_str[:100]}, trying next...")
+                    logger.warning("Error with %s: %s, trying next...", model_name, error_str[:200])
                     continue
 
         # All Gemini models failed, fallback to Ollama
-        print("All Gemini models exhausted, falling back to Ollama...")
+        logger.warning(
+            "All %d Gemini models exhausted (tried: %s), falling back to Ollama...",
+            len(available_models),
+            ", ".join(available_models),
+        )
+        
+        # Try Ollama as a last resort
+        ollama_result = None
         try:
-            return self._chat_ollama(messages, system, None, tools)
-        except Exception as ollama_error:
-            return {
-                "content": f"All models failed. Last Gemini error: {last_error}. Ollama error: {ollama_error}",
-                "error": True,
-            }
+            ollama_result = self._chat_ollama(messages, system, None, tools)
+        except Exception as e:
+            logger.warning("Ollama fallback failed with exception: %s", e)
+            
+        # If Ollama succeeded (no error flag), return its response
+        if ollama_result and not ollama_result.get("error"):
+            return ollama_result
+            
+        # If Ollama failed (or timed out), we want to show the user why the primary API failed
+        if ollama_result:
+            logger.warning("Ollama fallback failed: %s", ollama_result.get("content"))
+            
+        # Determine user-friendly message based on the original Gemini error
+        last_err_str = str(last_error) if last_error else ""
+        if "429" in last_err_str or "RESOURCE_EXHAUSTED" in last_err_str:
+            user_msg = "AI analysis is temporarily unavailable — the API rate limit has been reached. Please wait a few minutes and try again."
+        else:
+            user_msg = "AI analysis is temporarily unavailable. Please check your API configuration and try again."
+            
+        return {
+            "content": user_msg,
+            "error": True,
+        }
 
     def _parse_rate_limit_type(self, error_str: str) -> str:
         """Parse the type of rate limit from error message.
@@ -359,6 +398,12 @@ class LLMService:
             model=model,
             task_type=task_type,
         )
+        
+        # If the cascade returned an error (quota, timeout, etc), raise it
+        # so calling services don't cache/display the error message as valid analysis
+        if response.get("error"):
+            raise RuntimeError(response.get("content", "LLM completion failed"))
+            
         return response.get("content", "")
 
     def stream_chat(

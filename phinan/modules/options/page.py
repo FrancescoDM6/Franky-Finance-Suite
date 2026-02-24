@@ -26,7 +26,7 @@ def options_content() -> rx.Component:
                 rx.text("Coming Soon", weight="bold"),
                 rx.text(
                     "Track weekly options plays, analyze strategies, "
-                    "and compete with Papi and Tio's returns!",
+                    "and optimize your returns!",
                     size="2",
                 ),
                 spacing="2",

@@ -6,6 +6,7 @@ from datetime import datetime
 import reflex as rx
 
 from ..components.layout import main_layout
+from ..components.ui import content_card, synthesis_card
 from ..state.user_context import UserContextState
 from ..modules.portfolio.state import PortfolioState
 from .prompts import build_daily_brief_prompt
@@ -184,7 +185,7 @@ class DailyBriefState(rx.State):
 
 def stat_card(title: str, value: rx.Var | str, subtitle: str = "", color_scheme: str = "gray") -> rx.Component:
     """Statistics card component."""
-    return rx.card(
+    return content_card(
         rx.vstack(
             rx.text(title, size="1", color_scheme="gray"),
             rx.heading(value, size="5"),
@@ -202,7 +203,7 @@ def stat_card(title: str, value: rx.Var | str, subtitle: str = "", color_scheme:
 
 def daily_brief_card() -> rx.Component:
     """Phin's Daily Brief card."""
-    return rx.card(
+    return synthesis_card(
         rx.vstack(
             # Header with refresh button
             rx.hstack(
@@ -287,7 +288,7 @@ def news_alerts_card() -> rx.Component:
     """Compact news alerts for holdings."""
     return rx.cond(
         DailyBriefState.news_alerts.length() > 0,
-        rx.card(
+        content_card(
             rx.vstack(
                 rx.hstack(
                     rx.icon("bell", size=16, color="var(--amber-9)"),
@@ -328,7 +329,7 @@ def news_alerts_card() -> rx.Component:
 
 def portfolio_mini_summary() -> rx.Component:
     """Compact portfolio summary card."""
-    return rx.card(
+    return content_card(
         rx.vstack(
             rx.hstack(
                 rx.icon("briefcase", size=16),
@@ -467,7 +468,7 @@ def quick_add_position_dialog() -> rx.Component:
 
 def quick_actions() -> rx.Component:
     """Enhanced quick actions section."""
-    return rx.card(
+    return content_card(
         rx.vstack(
             rx.hstack(
                 rx.icon("zap", size=16),
@@ -578,6 +579,7 @@ def dashboard_content() -> rx.Component:
         width="100%",
         align="start",
     )
+
 
 
 @rx.page(

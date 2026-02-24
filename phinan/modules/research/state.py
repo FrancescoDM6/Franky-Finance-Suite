@@ -969,7 +969,7 @@ class ResearchState(rx.State):
     async def _apply_profile_insights(self):
         """Generate profile-specific insights based on active user profile."""
         from ...state.user_context import UserContextState
-        from .profiles import get_papi_insights, get_tio_insights, get_franky_insights
+        from .profiles import get_conservative_insights, get_aggressive_insights, get_standard_insights
 
         try:
             # Get user context state to find active profile
@@ -981,17 +981,17 @@ class ResearchState(rx.State):
                 {"title": n.title, "publisher": n.publisher} for n in self.recent_news
             ]
 
-            if profile == "papi":
-                self.profile_insights = get_papi_insights(
+            if profile == "conservative":
+                self.profile_insights = get_conservative_insights(
                     self.ticker_info, self.price_range, self.analyst_data
                 )
-            elif profile == "tio":
-                self.profile_insights = get_tio_insights(
+            elif profile == "aggressive":
+                self.profile_insights = get_aggressive_insights(
                     self.ticker_info, self.price_range, news_dicts, self.analyst_data
                 )
             else:
-                # Franky or default
-                self.profile_insights = get_franky_insights(
+                # Standard or default
+                self.profile_insights = get_standard_insights(
                     self.ticker_info, self.price_range, news_dicts, self.analyst_data
                 )
         except Exception as e:
@@ -1037,7 +1037,6 @@ class ResearchState(rx.State):
                 )
 
             self.price_history = history_data
-            self.price_history = []
         except Exception as e:
             logger.warning("Error fetching price history for %s: %s", self.selected_ticker, e)
             self.price_history = []
@@ -1170,9 +1169,9 @@ class ResearchState(rx.State):
     ) -> str:
         """Select the best default expiration based on user profile.
 
-        - Papi (2_weeks): First expiration in 7-21 day range
-        - Tio (1_2_months): First expiration in 30-60 day range
-        - Franky (varies): First available expiration
+        - Conservative (2_weeks): First expiration in 7-21 day range
+        - Aggressive (1_2_months): First expiration in 30-60 day range
+        - Standard (varies): First available expiration
 
         Falls back to first expiration if no match in preferred range.
         """
@@ -1189,7 +1188,7 @@ class ResearchState(rx.State):
         elif profile_timeframe == "1_2_months":
             min_days, max_days = 30, 60
         else:
-            # Franky or default: just use first expiration
+            # Standard or default: just use first expiration
             return expirations[0]
 
         # Find first expiration in target range

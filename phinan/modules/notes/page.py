@@ -15,7 +15,7 @@ def upload_zone() -> rx.Component:
     return rx.vstack(
         rx.upload(
             rx.vstack(
-                rx.icon("file-up", size=30),
+                rx.icon("file-up", size=30, color="var(--accent-9)"),
                 rx.text(
                     "Drop Term Sheet PDF here",
                     weight="bold",
@@ -33,11 +33,13 @@ def upload_zone() -> rx.Component:
             multiple=False,
             accept={"application/pdf": [".pdf"]},
             max_files=1,
-            border="1px dotted var(--gray-10)",
+            border="2px dashed var(--accent-a6)",
+            background="var(--accent-a2)",
             padding="2em",
             border_radius="1em",
             width="100%",
             height="200px",
+            class_name="shark-hover",
         ),
         rx.cond(
             NoteState.is_uploading,

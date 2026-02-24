@@ -37,12 +37,14 @@ def research_header() -> rx.Component:
             loading=ResearchState.is_loading,
             color_scheme="blue",
             size="2",
+            class_name="shark-hover",
         ),
         rx.button(
             "Clear",
             on_click=ResearchState.clear_research,
             variant="outline",
             size="2",
+            class_name="shark-hover",
         ),
         spacing="3",
         wrap="wrap",
@@ -400,7 +402,17 @@ def research_results() -> rx.Component:
                 # Empty state - prompt to search
                 rx.center(
                     rx.vstack(
-                        rx.icon("search", size=48, color="var(--gray-8)"),
+                        # Custom Shark Fin Icon (Large Empty State)
+                        rx.html(
+                            """
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--gray-8)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <!-- Fin Body -->
+                                <path d="M 4 20 C 10 18 16 11 19 6 Q 23 13 20 20" />
+                                <!-- Detached Chevron -->
+                                <polyline points="16 3 22 3 23 8" />
+                            </svg>
+                            """
+                        ),
                         rx.text("Enter a ticker symbol to begin research", color_scheme="gray"),
                         rx.text(
                             "Try AAPL, NVDA, ORCL, or any stock ticker",
@@ -435,6 +447,7 @@ def research_content() -> rx.Component:
         spacing="4",
         width="100%",
     )
+
 
 
 @rx.page(

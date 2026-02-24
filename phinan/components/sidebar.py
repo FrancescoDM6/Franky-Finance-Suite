@@ -27,7 +27,7 @@ def nav_item(label: str, icon: str, route: str, page_id: str) -> rx.Component:
             border_radius="md",
             background=rx.cond(is_active, "var(--accent-a4)", "transparent"),
             color=rx.cond(is_active, "var(--accent-11)", "var(--gray-11)"),
-            _hover={"background": "var(--gray-a3)"},
+            class_name="shark-hover",
         ),
         href=route,
         width="100%",
@@ -75,6 +75,8 @@ def watchlist_section() -> rx.Component:
                             ),
                             width="100%",
                             padding="4px",
+                            class_name="shark-hover",
+                            border_radius="4px",
                         ),
                     ),
                     spacing="1",
@@ -141,6 +143,8 @@ def positions_section() -> rx.Component:
                             ),
                             width="100%",
                             padding="4px",
+                            class_name="shark-hover",
+                            border_radius="4px",
                         ),
                     ),
                     spacing="1",
@@ -164,7 +168,7 @@ def sidebar_footer() -> rx.Component:
         rx.box(
             rx.text("Profile", size="1", weight="bold", color_scheme="gray", margin_bottom="4px"),
             rx.select(
-                ["Papi", "Tio", "Franky"],
+                ["Conservative", "Aggressive", "Standard"],
                 value=UserContextState.profile_display_name,
                 on_change=UserContextState.set_profile,
                 placeholder="Profile",
@@ -188,6 +192,7 @@ def sidebar_footer() -> rx.Component:
                     size="2",
                     flex="1",
                     width="100%",
+                    class_name="shark-hover",
                 ),
                 content="Toggle Theme",
             ),
@@ -200,6 +205,7 @@ def sidebar_footer() -> rx.Component:
                     size="2",
                     flex="1",
                     width="100%",
+                    class_name="shark-hover",
                 ),
                 content="Settings",
             ),
@@ -220,12 +226,24 @@ def sidebar() -> rx.Component:
             # Logo area
             rx.box(
                 rx.hstack(
-                    rx.icon("trending-up", size=26, color="var(--accent-9)"),
-                    rx.heading("PFS", size="7", color="var(--accent-11)"),
+                    # Custom Shark Fin Icon (Detached Chevron)
+                    rx.html(
+                        """
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent-9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <!-- Fin Body (Stops short of the tip) -->
+                            <path d="M 4 20 C 10 18 16 11 19 6 Q 23 13 20 20" />
+                            <!-- Detached Chevron (Floating Tip) -->
+                            <!-- Left leg aligns with back curve, Right leg aligns with front curve -->
+                            <polyline points="16 3 22 3 23 8" />
+                        </svg>
+                        """
+                    ),
+                    rx.heading("Phinan", size="7", color="var(--accent-11)"),
                     spacing="2",
                     align="center",
                 ),
                 padding="20px",
+                background="linear-gradient(180deg, var(--gray-a2) 0%, transparent 100%)",
             ),
             # Navigation items
             rx.vstack(
@@ -260,6 +278,6 @@ def sidebar() -> rx.Component:
         width="240px",
         height="100vh",
         border_right="1px solid var(--gray-a5)",
-        background="var(--color-background)",
+        class_name="sidebar-depth",
         z_index="50",
     )

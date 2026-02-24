@@ -41,7 +41,7 @@ def sample_research_context():
             "flags": [],
         },
         news_sentiment="Positive",
-        profile_name="Franky",
+        profile_name="Standard",
         profile_description="Learning investor focused on understanding",
         timeframe="varies",
         default_range="3mo",
@@ -68,7 +68,7 @@ class TestSynthesisServiceContextHash:
     ):
         hash1 = synthesis_service._compute_context_hash(sample_research_context)
 
-        sample_research_context.profile_name = "Papi"
+        sample_research_context.profile_name = "Conservative"
         hash2 = synthesis_service._compute_context_hash(sample_research_context)
 
         assert hash1 != hash2

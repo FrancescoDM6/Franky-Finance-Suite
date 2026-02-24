@@ -15,11 +15,11 @@ class UserContextState(rx.State):
     This state maintains:
     - Trading preferences (risk tolerance, strategy type)
     - Watchlist
-    - Active user profile (Papi/Tio/Franky modes)
+    - Active user profile (Conservative/Aggressive/Standard modes)
     """
 
     # Profile selection
-    active_profile: str = "franky"
+    active_profile: str = "standard"
 
     # Trading preferences
     risk_tolerance: str = "conservative"  # "conservative" or "aggressive"
@@ -47,8 +47,8 @@ class UserContextState(rx.State):
     @rx.var
     def profile_display_name(self) -> str:
         """Display name for current profile."""
-        names = {"papi": "Papi", "tio": "Tio", "franky": "Franky"}
-        return names.get(self.active_profile, "Franky")
+        names = {"conservative": "Conservative", "aggressive": "Aggressive", "standard": "Standard"}
+        return names.get(self.active_profile, "Standard")
 
     async def load_context(self):
         """Load user context from database."""
@@ -117,19 +117,19 @@ class UserContextState(rx.State):
 
         # Apply profile-specific defaults
         profile_defaults = {
-            "papi": {
+            "conservative": {
                 "risk_tolerance": "conservative",
                 "typical_strategy": "entry_exit",
                 "typical_timeframe": "2_weeks",
                 "default_range_period": "3mo",
             },
-            "tio": {
+            "aggressive": {
                 "risk_tolerance": "aggressive",
                 "typical_strategy": "directional",
                 "typical_timeframe": "1_2_months",
                 "default_range_period": "6mo",
             },
-            "franky": {
+            "standard": {
                 "risk_tolerance": "learning",
                 "typical_strategy": "varies",
                 "typical_timeframe": "varies",

@@ -9,6 +9,11 @@ Modules (research, notes, options, portfolio) serve as tools the assistant can i
 import asyncio
 import logging
 
+# Configure basic logging so warnings/infos show up in the reflex console
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 try:
@@ -77,9 +82,9 @@ def on_load():
 
 app = rx.App(
     theme=rx.theme(
-        accent_color="blue",
-        gray_color="slate",
-        radius="medium",
+        accent_color="teal",
+        gray_color="sand",
+        radius="large",
     ),
     stylesheets=["/styles.css"],
     api_transformer=health_api,

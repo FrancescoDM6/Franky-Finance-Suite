@@ -126,7 +126,7 @@ def mock_volatility_service():
 @pytest.fixture
 def mock_user_context():
     mock = MagicMock()
-    mock.active_profile = "franky"
+    mock.active_profile = "standard"
     mock.watchlist = []
     return mock
 

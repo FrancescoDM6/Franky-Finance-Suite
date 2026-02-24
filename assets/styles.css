@@ -1,5 +1,67 @@
 /* Phinan Finance Suite - Global Styles */
 
+/* New Palette - Warmer Foundation */
+:root {
+    /* Core palette - Light mode */
+    --pfs-bg: #FAFAF8;
+    --pfs-surface: #FFFFFF;
+
+    /* Text - warm grays */
+    --pfs-text: #2D2A26;
+    --pfs-text-muted: #6B665E;
+    --pfs-text-faint: #9C968C;
+
+    /* Accent & Semantic */
+    --pfs-accent: #2A9D8F;
+    --pfs-accent-soft: #E8F5F3;
+    --pfs-profit: #4A9F5B;
+    --pfs-loss: #C75146;
+    --pfs-caution: #D4A24C;
+
+    /* Synthesis card - light */
+    --pfs-synthesis-bg: linear-gradient(135deg, #F7F5F0 0%, #EDE9E0 100%);
+    --pfs-synthesis-border: #D4CFC3;
+
+    /* Typography */
+    --pfs-text-xs: 0.8125rem;
+    --pfs-text-sm: 0.875rem;
+    --pfs-text-base: 1rem;
+    --pfs-text-lg: 1.125rem;
+    --pfs-text-xl: 1.375rem;
+    --pfs-text-2xl: 1.75rem;
+
+    /* Profile-specific accents */
+    --pfs-accent-conservative: #2A9D8F;
+    --pfs-accent-aggressive: #D4774C;
+    --pfs-accent-standard: #5E81AC;
+}
+
+/* Dark Mode Overrides */
+.dark,
+.dark-theme,
+[data-theme="dark"],
+[data-theme="dark"] body {
+    /* Core palette - Dark mode */
+    --pfs-bg: #1A1A18;
+    --pfs-surface: #242422;
+
+    /* Text - warm lights */
+    --pfs-text: #E6E4DD;
+    --pfs-text-muted: #A39E93;
+    --pfs-text-faint: #7A756C;
+
+    /* Accent & Semantic - adjusted for dark */
+    --pfs-accent: #37BFAE;
+    --pfs-accent-soft: #1E3331;
+    --pfs-profit: #5CB86C;
+    --pfs-loss: #E06053;
+    --pfs-caution: #E8B964;
+
+    /* Synthesis card - dark */
+    --pfs-synthesis-bg: linear-gradient(135deg, #2A2824 0%, #1F1E1B 100%);
+    --pfs-synthesis-border: #3D3933;
+}
+
 /* Reset and base */
 * {
     box-sizing: border-box;
@@ -47,6 +109,7 @@
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -59,9 +122,12 @@
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }
@@ -79,9 +145,33 @@
 }
 
 /* Input focus styles */
+/* Input focus styles */
 .rt-TextFieldInput:focus {
     outline: none;
-    box-shadow: 0 0 0 2px var(--accent-a6);
+    box-shadow: 0 0 0 2px var(--accent-a6), inset 0 0 8px var(--accent-a4);
+    transition: box-shadow 0.2s ease;
+}
+
+/* Pulsing Badge for Live Markets */
+.pulse-glow {
+    animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+    0% {
+        opacity: 0.8;
+        box-shadow: 0 0 0 0 var(--green-a5);
+    }
+
+    70% {
+        opacity: 1;
+        box-shadow: 0 0 0 6px transparent;
+    }
+
+    100% {
+        opacity: 0.8;
+        box-shadow: 0 0 0 0 transparent;
+    }
 }
 
 /* Button transitions */
@@ -125,6 +215,36 @@
     color: var(--blue-11);
 }
 
+
 .range-low {
     color: var(--green-11);
+}
+
+/* Shark/Ocean Theme Enhancements */
+/* Shark/Ocean Theme Enhancements */
+.shark-fin-gradient {
+    background: linear-gradient(180deg, var(--accent-a3) 0%, transparent 100%);
+}
+
+.ocean-depths {
+    background: linear-gradient(to bottom right, var(--accent-2), var(--gray-1));
+}
+
+.sidebar-depth {
+    background: linear-gradient(180deg, var(--color-background) 0%, var(--gray-2) 100%);
+}
+
+.shark-hover {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shark-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px -5px var(--accent-a5);
+    background-color: var(--accent-a3) !important;
+}
+
+.card-ocean {
+    background: linear-gradient(145deg, var(--gray-1), var(--accent-2));
+    border-top: 1px solid var(--accent-a5);
 }
