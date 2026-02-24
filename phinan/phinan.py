@@ -9,6 +9,11 @@ Modules (research, notes, options, portfolio) serve as tools the assistant can i
 import asyncio
 import logging
 
+# Configure basic logging so warnings/infos show up in the reflex console
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 try:
@@ -52,7 +57,7 @@ except Exception as e:
 import reflex as rx
 
 # Import pages to register them with Reflex
-from .pages import index, settings, ui_demo
+from .pages import index, settings
 from .modules.research import page as research_page
 from .modules.notes import page as notes_page
 from .modules.options import page as options_page

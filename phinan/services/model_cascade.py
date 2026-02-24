@@ -44,19 +44,19 @@ class ModelCascade:
     smaller models for simpler tasks.
     """
 
-    # Gemini model configurations (2025 pricing)
+    # Gemini model configurations (2025/2026 pricing)
     MODELS = {
         TaskComplexity.SIMPLE: ModelConfig(
-            name="gemini-2.0-flash-lite",
+            name="gemini-2.5-flash-lite",
             cost_per_1k_input=0.000075,  # $0.075 per 1M
             cost_per_1k_output=0.0003,  # $0.30 per 1M
             max_tokens=8192,
         ),
         TaskComplexity.MEDIUM: ModelConfig(
-            name="gemini-2.0-flash",
-            cost_per_1k_input=0.0001,  # $0.10 per 1M
-            cost_per_1k_output=0.0004,  # $0.40 per 1M
-            max_tokens=32768,
+            name="gemini-2.5-flash",
+            cost_per_1k_input=0.00015,  # $0.15 per 1M
+            cost_per_1k_output=0.0006,  # $0.60 per 1M
+            max_tokens=65536,
             supports_tools=True,
         ),
         TaskComplexity.COMPLEX: ModelConfig(
