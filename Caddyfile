@@ -22,7 +22,7 @@ encode gzip
 
 # Backend API routes (proxy to Reflex backend)
 @backend {
-    path /_event/* /ping /_upload/* /health/* /api/* /_ws/*
+    path /_event /_event/* /ping /_upload /_upload/* /health/* /api/* /_ws/*
 }
 reverse_proxy @backend 127.0.0.1:8000 {
     flush_interval -1
