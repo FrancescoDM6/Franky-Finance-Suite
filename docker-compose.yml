@@ -12,18 +12,13 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    env_file:
+      - .env
     environment:
       - API_URL=${API_URL:-http://localhost}
       # DOMAIN enables Caddy auto-HTTPS (e.g., phinan.example.com)
       - DOMAIN=${DOMAIN:-}
       - REDIS_URL=redis://redis:6379
-      # Pass through API keys from host .env
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - FMP_API_KEY=${FMP_API_KEY}
-      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
-      - FRED_API_KEY=${FRED_API_KEY}
-      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
-      - NEWSAPI_KEY=${NEWSAPI_KEY}
     volumes:
       # Persist DuckDB data
       - phinan_data:/data
