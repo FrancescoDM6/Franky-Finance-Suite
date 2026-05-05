@@ -12,6 +12,7 @@ from typing import Optional
 from pydantic import BaseModel
 import reflex as rx
 
+from ...core.async_utils import run_sync
 from ...services import services
 
 
@@ -214,7 +215,6 @@ class PortfolioState(rx.State):
 
     async def load_positions(self):
         import asyncio
-        from ...core.async_utils import run_sync
 
         self.is_loading = True
         self.error_message = ""
@@ -302,8 +302,6 @@ class PortfolioState(rx.State):
 
     async def add_position(self):
         """Add a new position to the portfolio."""
-        from ...core.async_utils import run_sync
-
         self.error_message = ""
 
         # Validate inputs
@@ -354,8 +352,6 @@ class PortfolioState(rx.State):
 
     async def delete_position(self, position_id: int):
         """Delete a position from the portfolio (internal, called after confirmation)."""
-        from ...core.async_utils import run_sync
-
         try:
             await run_sync(
                 services.db.execute,

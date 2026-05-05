@@ -125,33 +125,38 @@ class DatabaseManager:
             with self._writer_lock:
                 yield self._get_shared_connection()
 
-    def execute(self, query: str, params: tuple = ()) -> Any:
-        """Execute a write query."""
+    def execute(self, query: str, params: tuple = ()) -> None:
+        """Execute a write query.
+
+        Returns None - the underlying cursor is closed before returning so
+        callers cannot consume results. Use query()/query_df() for reads.
+        """
         with self.get_connection() as conn:
-            # cursor() returns a thread-safe view onto the shared connection.
-            # Required because callers may invoke this from worker threads
-            # (e.g. via run_sync) while another thread holds the parent.
-            cursor = conn.cursor()
-            try:
-                result = cursor.execute(query, params)
-                cursor.commit()
-                return result
-            except Exception:
-                cursor.rollback()
-                raise
+            # cursor() creates an independent connection handle to the same
+            # database. Required because callers may invoke this from worker
+            # threads (e.g. via run_sync) while another thread holds the
+            # parent. Wrap in `with` so the handle is closed on exit.
+            with conn.cursor() as cursor:
+                try:
+                    cursor.execute(query, params)
+                    cursor.commit()
+                except Exception:
+                    cursor.rollback()
+                    raise
 
     def query(self, query: str, params: tuple = ()) -> list[dict]:
         """Execute a read query and return results as list of dicts."""
         with self.get_connection(read_only=True) as conn:
-            cursor = conn.cursor()
-            result = cursor.execute(query, params)
-            columns = [desc[0] for desc in result.description]
-            return [dict(zip(columns, row)) for row in result.fetchall()]
+            with conn.cursor() as cursor:
+                result = cursor.execute(query, params)
+                columns = [desc[0] for desc in result.description]
+                return [dict(zip(columns, row)) for row in result.fetchall()]
 
     def query_df(self, query: str, params: tuple = ()):
         """Execute a read query and return as DataFrame."""
         with self.get_connection(read_only=True) as conn:
-            return conn.cursor().execute(query, params).fetchdf()
+            with conn.cursor() as cursor:
+                return cursor.execute(query, params).fetchdf()
 
     def get_schema_version(self) -> int:
         """Get current schema version."""
