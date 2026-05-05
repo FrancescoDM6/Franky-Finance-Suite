@@ -62,6 +62,10 @@ def run_migrations():
 
         db = get_database_manager()
         db.initialize_schema()
+        # DuckDB only allows one read-write process per file. The Reflex
+        # backend is spawned as a child process below and re-opens the same
+        # database, so we must release this process's lock first.
+        db.close()
         print("Migrations completed successfully.")
     except Exception as e:
         print(f"Migration failed: {e}")
