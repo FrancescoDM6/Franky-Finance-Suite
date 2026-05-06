@@ -12,6 +12,7 @@ from typing import Optional
 from pydantic import BaseModel
 import reflex as rx
 
+from ...core.async_utils import run_sync
 from ...services import services
 
 
@@ -214,7 +215,6 @@ class PortfolioState(rx.State):
 
     async def load_positions(self):
         import asyncio
-        from ...core.async_utils import run_sync
 
         self.is_loading = True
         self.error_message = ""
@@ -333,8 +333,8 @@ class PortfolioState(rx.State):
         ticker = self.form_ticker.strip().upper()
 
         try:
-            # Insert into database
-            services.db.execute(
+            await run_sync(
+                services.db.execute,
                 """
                 INSERT INTO portfolio (ticker_symbol, quantity, cost_basis, purchase_date, notes)
                 VALUES (?, ?, ?, ?, ?)
@@ -353,7 +353,11 @@ class PortfolioState(rx.State):
     async def delete_position(self, position_id: int):
         """Delete a position from the portfolio (internal, called after confirmation)."""
         try:
-            services.db.execute("DELETE FROM portfolio WHERE id = ?", (position_id,))
+            await run_sync(
+                services.db.execute,
+                "DELETE FROM portfolio WHERE id = ?",
+                (position_id,),
+            )
             await self.load_positions()
         except Exception as e:
             self.error_message = f"Error deleting position: {str(e)}"
