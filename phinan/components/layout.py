@@ -15,7 +15,7 @@ def main_layout(*children) -> rx.Component:
     - Content: Flexible width (flex-1), scrollable
     - Assistant: Floating overlay (absolute)
     """
-    return rx.flex(
+    return rx.box(
         # Mobile top bar
         rx.hstack(
             rx.icon_button(
@@ -33,7 +33,7 @@ def main_layout(*children) -> rx.Component:
             background="var(--color-background)",
             align="center",
             spacing="3",
-            display=rx.breakpoints({"0px": "flex", "768px": "none"}),
+            display=rx.breakpoints(initial="flex", sm="none"),
             flex_shrink="0",
         ),
 
@@ -49,7 +49,7 @@ def main_layout(*children) -> rx.Component:
                 height="100vh",
                 z_index="100",
                 background="var(--color-background)",
-                display=rx.breakpoints({"0px": "block", "768px": "none"}),
+                display=rx.breakpoints(initial="block", sm="none"),
             ),
             rx.fragment(),
         ),
@@ -57,7 +57,7 @@ def main_layout(*children) -> rx.Component:
         # Desktop sidebar, always inline.
         rx.box(
             sidebar(),
-            display=rx.breakpoints({"0px": "none", "768px": "block"}),
+            display=rx.breakpoints(initial="none", sm="block"),
             flex_shrink="0",
         ),
 
@@ -66,12 +66,18 @@ def main_layout(*children) -> rx.Component:
             *children,
             flex="1",
             min_height="0",
-            padding=rx.breakpoints({"0px": "12px", "768px": "24px"}),
+            min_width="0",
+            padding=rx.breakpoints(initial="12px", sm="24px"),
             overflow_y="auto",
             width="100%",
         ),
 
-        direction=rx.breakpoints({"0px": "column", "768px": "row"}),
+        # Use rx.box + flex_direction (CSS) instead of rx.flex + direction
+        # because Radix's `direction` prop on rx.flex does not respond to
+        # rx.breakpoints, leaving the layout as row on mobile and squeezing
+        # the main content to zero width.
+        display="flex",
+        flex_direction=rx.breakpoints(initial="column", sm="row"),
         width="100%",
         height="100vh",
         background="var(--pfs-bg)",

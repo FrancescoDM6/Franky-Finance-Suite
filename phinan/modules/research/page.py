@@ -291,7 +291,7 @@ def options_tab() -> rx.Component:
     return rx.flex(
         options_card(),
         volatility_card(),
-        direction=rx.breakpoints({"0px": "column", "768px": "row"}),
+        flex_direction=rx.breakpoints(initial="column", sm="row"),
         spacing="4",
         width="100%",
     )
