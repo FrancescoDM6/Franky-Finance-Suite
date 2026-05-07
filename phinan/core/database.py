@@ -11,7 +11,7 @@ import threading
 import atexit
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Generator, Optional
 
 import duckdb
 
@@ -78,6 +78,21 @@ class DatabaseManager:
             finally:
                 self._writer_conn = None
 
+    def close(self) -> None:
+        """Close the underlying DuckDB connection and release its file lock.
+
+        Required before forking/spawning a child Python process that will
+        re-open the same database file - DuckDB only permits one read-write
+        process per file, so the parent must drop its lock first.
+        """
+        with self._writer_lock:
+            if self._writer_conn is not None:
+                try:
+                    self._writer_conn.close()
+                except Exception:
+                    pass
+                self._writer_conn = None
+
     def _get_shared_connection(self) -> duckdb.DuckDBPyConnection:
         """Get or create the shared database connection.
 
@@ -120,28 +135,38 @@ class DatabaseManager:
             with self._writer_lock:
                 yield self._get_shared_connection()
 
-    def execute(self, query: str, params: tuple = ()) -> Any:
-        """Execute a write query."""
+    def execute(self, query: str, params: tuple = ()) -> None:
+        """Execute a write query.
+
+        Returns None - the underlying cursor is closed before returning so
+        callers cannot consume results. Use query()/query_df() for reads.
+        """
         with self.get_connection() as conn:
-            try:
-                result = conn.execute(query, params)
-                conn.commit()  # DuckDB requires explicit commit for persistence
-                return result
-            except Exception:
-                conn.rollback()  # Rollback on error to maintain consistency
-                raise
+            # cursor() creates an independent connection handle to the same
+            # database. Required because callers may invoke this from worker
+            # threads (e.g. via run_sync) while another thread holds the
+            # parent. Wrap in `with` so the handle is closed on exit.
+            with conn.cursor() as cursor:
+                try:
+                    cursor.execute(query, params)
+                    cursor.commit()
+                except Exception:
+                    cursor.rollback()
+                    raise
 
     def query(self, query: str, params: tuple = ()) -> list[dict]:
         """Execute a read query and return results as list of dicts."""
         with self.get_connection(read_only=True) as conn:
-            result = conn.execute(query, params)
-            columns = [desc[0] for desc in result.description]
-            return [dict(zip(columns, row)) for row in result.fetchall()]
+            with conn.cursor() as cursor:
+                result = cursor.execute(query, params)
+                columns = [desc[0] for desc in result.description]
+                return [dict(zip(columns, row)) for row in result.fetchall()]
 
     def query_df(self, query: str, params: tuple = ()):
         """Execute a read query and return as DataFrame."""
         with self.get_connection(read_only=True) as conn:
-            return conn.execute(query, params).fetchdf()
+            with conn.cursor() as cursor:
+                return cursor.execute(query, params).fetchdf()
 
     def get_schema_version(self) -> int:
         """Get current schema version."""
