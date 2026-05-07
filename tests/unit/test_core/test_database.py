@@ -1,5 +1,6 @@
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 import pytest
@@ -143,6 +144,32 @@ class TestDatabaseManagerConnectionContext:
 
             manager.close()
             DatabaseManager._instance = None
+
+    def test_concurrent_first_reads_open_one_shared_connection(self, tmp_path):
+        db_path = tmp_path / "test.duckdb"
+
+        with patch("phinan.core.database.settings") as mock_settings:
+            mock_settings.database.resolved_path = db_path
+
+            from phinan.core.database import DatabaseManager
+
+            DatabaseManager._instance = None
+            manager = DatabaseManager()
+
+            try:
+                with ThreadPoolExecutor(max_workers=8) as executor:
+                    futures = [
+                        executor.submit(manager.query, "SELECT 1 AS value")
+                        for _ in range(8)
+                    ]
+
+                assert [future.result() for future in futures] == [
+                    [{"value": 1}]
+                    for _ in range(8)
+                ]
+            finally:
+                manager.close()
+                DatabaseManager._instance = None
 
 
 class TestDatabaseManagerClose:

@@ -51,6 +51,7 @@ class DatabaseManager:
 
             self._db_path = settings.database.resolved_path
             self._writer_conn: Optional[duckdb.DuckDBPyConnection] = None
+            self._connection_lock = threading.Lock()
             self._writer_lock = threading.Lock()
             self._initialized = True
 
@@ -65,27 +66,13 @@ class DatabaseManager:
         self.close()
 
     def close(self):
-        """Close the shared database connection.
-
-        Safe to call multiple times. The next query will lazily reopen the
-        connection.
-        """
-        if self._writer_conn:
-            try:
-                self._writer_conn.close()
-            except Exception:
-                pass
-            finally:
-                self._writer_conn = None
-
-    def close(self) -> None:
         """Close the underlying DuckDB connection and release its file lock.
 
         Required before forking/spawning a child Python process that will
         re-open the same database file - DuckDB only permits one read-write
         process per file, so the parent must drop its lock first.
         """
-        with self._writer_lock:
+        with self._connection_lock:
             if self._writer_conn is not None:
                 try:
                     self._writer_conn.close()
@@ -101,13 +88,15 @@ class DatabaseManager:
         DuckDB's Python API handles concurrent access internally.
         """
         if self._writer_conn is None:
-            self._writer_conn = duckdb.connect(str(self._db_path))
-            # Configure memory limit for containerized environments
-            # DuckDB defaults to 80% of HOST RAM, not container limits
-            # This prevents OOMKilled errors in Docker/Railway
-            self._writer_conn.execute("SET memory_limit = '512MB'")
-            # Set threads to match container resources
-            self._writer_conn.execute("SET threads = 2")
+            with self._connection_lock:
+                if self._writer_conn is None:
+                    self._writer_conn = duckdb.connect(str(self._db_path))
+                    # Configure memory limit for containerized environments
+                    # DuckDB defaults to 80% of HOST RAM, not container limits
+                    # This prevents OOMKilled errors in Docker/Railway
+                    self._writer_conn.execute("SET memory_limit = '512MB'")
+                    # Set threads to match container resources
+                    self._writer_conn.execute("SET threads = 2")
         return self._writer_conn
 
     @contextmanager
