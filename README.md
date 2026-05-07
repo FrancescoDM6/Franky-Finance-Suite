@@ -163,7 +163,7 @@ The application will be available at:
 All configuration is managed via environment variables with the `PHINAN_` prefix.
 
 ### Database
-- `PHINAN_DATABASE_PATH` - Path to DuckDB file (default: `~/.phinan/phinan.duckdb`)
+- `PHINAN_DATABASE__PATH` - Path to DuckDB file (default: `~/.phinan/phinan.duckdb`; use `/data/phinan.duckdb` in Docker)
 
 ### Google Gemini LLM (Primary)
 - `PHINAN_GEMINI_API_KEY` - Google Gemini API key (required for Gemini)

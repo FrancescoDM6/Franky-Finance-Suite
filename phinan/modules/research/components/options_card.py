@@ -61,6 +61,7 @@ def options_metadata_row() -> rx.Component:
         justify="start",
         spacing="4",
         padding_y="2",
+        wrap="wrap",
     )
 
 
@@ -75,6 +76,7 @@ def options_table_header() -> rx.Component:
         rx.box(width="80px"),  # Annotation column
         spacing="2",
         width="100%",
+        min_width="420px",
         padding_x="2",
         padding_y="1",
         background="var(--gray-2)",
@@ -140,6 +142,7 @@ def option_row(option: dict) -> rx.Component:
         ),
         spacing="2",
         width="100%",
+        min_width="420px",
         padding_x="2",
         padding_y="1",
         _hover={"background": "var(--gray-2)"},
@@ -255,9 +258,17 @@ def options_card() -> rx.Component:
                         rx.vstack(
                             options_metadata_row(),
                             rx.divider(),
-                            calls_section(),
+                            rx.box(
+                                calls_section(),
+                                overflow_x="auto",
+                                width="100%",
+                            ),
                             rx.divider(),
-                            puts_section(),
+                            rx.box(
+                                puts_section(),
+                                overflow_x="auto",
+                                width="100%",
+                            ),
                             rx.divider(),
                             profile_hint(),
                             spacing="3",

@@ -19,7 +19,7 @@ def research_header() -> rx.Component:
                 on_change=ResearchState.set_ticker_input,
                 on_key_down=ResearchState.handle_search_key,
                 size="2",
-                width="200px",
+                width=rx.breakpoints({"0px": "100%", "640px": "200px"}),
                 list="tickers",
             ),
             rx.el.datalist(
@@ -29,6 +29,7 @@ def research_header() -> rx.Component:
                 ),
                 id="tickers",
             ),
+            width=rx.breakpoints({"0px": "100%", "640px": "auto"}),
         ),
         rx.button(
             rx.icon("search", size=16),
@@ -48,6 +49,7 @@ def research_header() -> rx.Component:
         ),
         spacing="3",
         wrap="wrap",
+        width="100%",
     )
 
 
@@ -256,7 +258,7 @@ def overview_tab() -> rx.Component:
         rx.grid(
             quality_card(),
             analyst_card(),
-            columns="2",
+            columns=rx.breakpoints({"0px": "1", "768px": "2"}),
             spacing="4",
             width="100%",
         ),
@@ -286,9 +288,10 @@ def news_tab() -> rx.Component:
 
 def options_tab() -> rx.Component:
     """Options tab content."""
-    return rx.hstack(
+    return rx.flex(
         options_card(),
         volatility_card(),
+        direction=rx.breakpoints({"0px": "column", "768px": "row"}),
         spacing="4",
         width="100%",
     )

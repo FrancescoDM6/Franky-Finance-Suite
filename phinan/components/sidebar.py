@@ -182,11 +182,11 @@ def sidebar_footer() -> rx.Component:
             rx.tooltip(
                 rx.icon_button(
                     rx.cond(
-                        rx.color_mode == "dark",
+                        UserContextState.dark_mode,
                         rx.icon("sun", size=18),
                         rx.icon("moon", size=18),
                     ),
-                    on_click=rx.toggle_color_mode,
+                    on_click=UserContextState.toggle_dark_mode,
                     variant="soft",
                     color_scheme="gray",
                     size="2",
@@ -239,8 +239,18 @@ def sidebar() -> rx.Component:
                         """
                     ),
                     rx.heading("Phinan", size="7", color="var(--accent-11)"),
+                    rx.spacer(),
+                    rx.icon_button(
+                        rx.icon("x", size=18),
+                        on_click=AppState.toggle_sidebar,
+                        variant="ghost",
+                        color_scheme="gray",
+                        size="2",
+                        display=rx.breakpoints({"0px": "flex", "768px": "none"}),
+                    ),
                     spacing="2",
                     align="center",
+                    width="100%",
                 ),
                 padding="20px",
                 background="linear-gradient(180deg, var(--gray-a2) 0%, transparent 100%)",
@@ -275,7 +285,7 @@ def sidebar() -> rx.Component:
         ),
         sidebar_footer(),
         direction="column",
-        width="240px",
+        width=rx.breakpoints({"0px": "100%", "768px": "240px"}),
         height="100vh",
         border_right="1px solid var(--gray-a5)",
         class_name="sidebar-depth",

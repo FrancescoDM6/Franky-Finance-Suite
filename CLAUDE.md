@@ -169,7 +169,7 @@ Heavy data (options chains, price history) should come from services/cache.
 
 Settings via environment variables with `PHINAN_` prefix:
 ```bash
-PHINAN_DATABASE_PATH=~/.phinan/phinan.duckdb
+PHINAN_DATABASE__PATH=~/.phinan/phinan.duckdb
 PHINAN_OLLAMA_BASE_URL=http://localhost:11434
 PHINAN_OLLAMA_MODEL=llama3.2:latest
 PHINAN_AI_SERVICES_ENABLE_SENTIMENT=false  # Disable for faster startup

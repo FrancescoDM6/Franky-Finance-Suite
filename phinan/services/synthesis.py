@@ -7,6 +7,7 @@ bank recommendation evaluation, and theme research.
 from dataclasses import dataclass
 from typing import Any, Optional
 import hashlib
+import logging
 
 from ..modules.research.prompts import (
     build_analysis_prompt,
@@ -18,6 +19,9 @@ from ..modules.research.prompts import (
 from datetime import datetime, timedelta
 import json
 # from ..core.database import get_database_manager - moved inside methods to prevent circular import
+
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ResearchContext:
@@ -72,12 +76,15 @@ class SynthesisService:
         - Portfolio position (quantity, cost basis, P/L)
         - News sentiment
         - User profile
+        - User timeframe and default range
         - Options expiration
         """
         # Extract key fields that should invalidate cache
         hash_data = {
             "ticker": context.ticker,
             "profile": context.profile_name,
+            "timeframe": context.timeframe,
+            "default_range": context.default_range,
             "sentiment": context.news_sentiment,
             "options_exp": context.options_expiration,
             # Round price to nearest dollar to avoid noise from minor fluctuations
@@ -142,7 +149,7 @@ class SynthesisService:
                 return data.get("content")
             return None
         except Exception as e:
-            print(f"Cache read error: {e}")
+            logger.error("Cache read error: %s", e)
             return None
 
     def _cache_synthesis(self, ticker: str, research_type: str, content: str, context_hash: str):
@@ -168,7 +175,7 @@ class SynthesisService:
             now = datetime.now()
             db_mgr.execute(query, (ticker.upper(), research_type, json.dumps(data), now, now))
         except Exception as e:
-            print(f"Cache write error: {e}")
+            logger.error("Cache write error: %s", e)
 
     def health_check(self) -> bool:
         """Check if synthesis service is available (requires LLM)."""

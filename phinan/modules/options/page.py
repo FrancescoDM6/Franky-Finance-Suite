@@ -59,7 +59,7 @@ def options_content() -> rx.Component:
                     rx.badge("Cash-Secured Put", color_scheme="purple"),
                     rx.badge("Vertical Spreads", color_scheme="orange"),
                     rx.badge("Iron Condor", color_scheme="gray"),
-                    columns="3",
+                    columns=rx.breakpoints({"0px": "2", "768px": "3"}),
                     spacing="2",
                 ),
                 spacing="3",

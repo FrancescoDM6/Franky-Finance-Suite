@@ -301,7 +301,7 @@ def add_position_form() -> rx.Component:
                         spacing="1",
                         align="start",
                     ),
-                    columns="4",
+                    columns=rx.breakpoints({"0px": "1", "640px": "2", "768px": "4"}),
                     spacing="4",
                     width="100%",
                 ),

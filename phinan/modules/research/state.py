@@ -935,8 +935,8 @@ class ResearchState(rx.State):
                 news_sentiment=dominant_sentiment.title(),
                 profile_name=profile.name,
                 profile_description=profile.description,
-                timeframe=profile.typical_timeframe,
-                default_range=profile.default_range_period,
+                timeframe=user_ctx.typical_timeframe,
+                default_range=user_ctx.default_range_period,
                 portfolio_position=portfolio_position,
                 options_summary=self.options_summary,
                 options_expiration=self.selected_expiration,
@@ -1111,7 +1111,6 @@ class ResearchState(rx.State):
         """
         from ...services import services
         from ...state.user_context import UserContextState
-        from .profiles import get_profile
 
         if not self.selected_ticker:
             return
@@ -1122,7 +1121,6 @@ class ResearchState(rx.State):
 
             # Get user profile for default selection
             user_ctx = await self.get_state(UserContextState)
-            profile = get_profile(user_ctx.active_profile)
 
             # Fetch all expirations
             expirations = services.market_data.get_options_expirations(
@@ -1144,7 +1142,7 @@ class ResearchState(rx.State):
 
             # Select default expiration based on profile
             default_exp = self._get_default_expiration_for_profile(
-                expirations, profile.typical_timeframe
+                expirations, user_ctx.typical_timeframe
             )
             self.selected_expiration = default_exp
 
@@ -1175,7 +1173,7 @@ class ResearchState(rx.State):
 
         Falls back to first expiration if no match in preferred range.
         """
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         if not expirations:
             return ""
@@ -1183,7 +1181,9 @@ class ResearchState(rx.State):
         today = datetime.now().date()
 
         # Define target ranges based on profile
-        if profile_timeframe == "2_weeks":
+        if profile_timeframe == "1_week":
+            min_days, max_days = 3, 10
+        elif profile_timeframe == "2_weeks":
             min_days, max_days = 7, 21
         elif profile_timeframe == "1_2_months":
             min_days, max_days = 30, 60

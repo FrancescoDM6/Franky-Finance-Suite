@@ -18,6 +18,8 @@ services:
       - API_URL=${API_URL:-http://localhost}
       # DOMAIN enables Caddy auto-HTTPS (e.g., phinan.example.com)
       - DOMAIN=${DOMAIN:-}
+      # Keep DuckDB on the persisted Docker volume even if env_file sets a local path
+      - PHINAN_DATABASE__PATH=/data/phinan.duckdb
       - REDIS_URL=redis://redis:6379
     volumes:
       # Persist DuckDB data

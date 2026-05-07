@@ -57,6 +57,7 @@ def test_redis_connection():
 def run_migrations():
     """Run database migrations."""
     print("Running database migrations...")
+    db = None
     try:
         from phinan.core.database import get_database_manager
 
@@ -66,6 +67,9 @@ def run_migrations():
     except Exception as e:
         print(f"Migration failed: {e}")
         sys.exit(1)
+    finally:
+        if db is not None:
+            db.close()
 
 
 def start_reflex():

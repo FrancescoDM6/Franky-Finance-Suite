@@ -24,17 +24,31 @@ def settings_content() -> rx.Component:
                     size="2",
                 ),
                 rx.text(
-                    rx.cond(
-                        UserContextState.active_profile == "conservative",
-                        "Conservative strategy - Options as entry/exit mechanism, 2-week timeframe",
-                        rx.cond(
-                            UserContextState.active_profile == "aggressive",
-                            "Aggressive strategy - Directional plays, 1-2 month timeframe",
-                            "Standard mode - All data visible for comprehensive understanding",
-                        ),
-                    ),
+                    "Active timeframe: ",
+                    UserContextState.timeframe_display_name,
                     size="1",
                     color_scheme="gray",
+                ),
+                spacing="3",
+                align="start",
+                width="100%",
+            ),
+            width="100%",
+        ),
+        # Timeframe section
+        rx.card(
+            rx.vstack(
+                rx.heading("Default Timeframe", size="4"),
+                rx.text(
+                    "Controls AI prompt context and default options expiration selection.",
+                    size="2",
+                    color_scheme="gray",
+                ),
+                rx.select(
+                    ["1_week", "2_weeks", "1_2_months", "varies"],
+                    value=UserContextState.typical_timeframe,
+                    on_change=UserContextState.set_typical_timeframe,
+                    size="2",
                 ),
                 spacing="3",
                 align="start",
@@ -66,8 +80,8 @@ def settings_content() -> rx.Component:
                 rx.hstack(
                     rx.text("Dark Mode", size="2"),
                     rx.switch(
-                        checked=AppState.dark_mode,
-                        on_change=AppState.toggle_dark_mode,
+                        checked=UserContextState.dark_mode,
+                        on_change=UserContextState.set_dark_mode,
                     ),
                     justify="between",
                     width="100%",
@@ -85,7 +99,11 @@ def settings_content() -> rx.Component:
     )
 
 
-@rx.page(route="/settings", title="Settings | Phinan Finance Suite", on_load=AppState.set_page("settings"))
+@rx.page(
+    route="/settings",
+    title="Settings | Phinan Finance Suite",
+    on_load=[AppState.set_page("settings"), UserContextState.load_context],
+)
 def settings_page() -> rx.Component:
     """Settings page."""
     return main_layout(settings_content())

@@ -122,7 +122,7 @@ def valuation_card() -> rx.Component:
                     rx.text("Instant P&L Loss", size="1", color_scheme="gray"),
                     align="center",
                 ),
-                columns="4",
+                columns=rx.breakpoints({"0px": "2", "768px": "4"}),
                 width="100%",
                 spacing="4",
             ),

@@ -1,7 +1,7 @@
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+import subprocess
+import sys
+from unittest.mock import patch
 
-import duckdb
 import pytest
 
 
@@ -18,6 +18,7 @@ class TestDatabaseManagerInitialization:
             manager = DatabaseManager()
 
             assert db_path.parent.exists()
+            manager.close()
             DatabaseManager._instance = None
 
     def test_singleton_pattern_returns_same_instance(self, tmp_path):
@@ -34,6 +35,7 @@ class TestDatabaseManagerInitialization:
             manager2 = DatabaseManager()
 
             assert manager1 is manager2
+            manager1.close()
             DatabaseManager._instance = None
 
 
@@ -59,7 +61,10 @@ class TestDatabaseManagerQueries:
                     )
                 """)
 
-            yield manager
+            try:
+                yield manager
+            finally:
+                manager.close()
             DatabaseManager._instance = None
 
     def test_execute_inserts_data(self, db_manager):
@@ -116,6 +121,7 @@ class TestDatabaseManagerHealthCheck:
             manager = DatabaseManager()
 
             assert manager.health_check() is True
+            manager.close()
             DatabaseManager._instance = None
 
 
@@ -135,4 +141,78 @@ class TestDatabaseManagerConnectionContext:
                 with manager.get_connection(read_only=True) as conn2:
                     assert conn1 is conn2
 
+            manager.close()
             DatabaseManager._instance = None
+
+
+class TestDatabaseManagerClose:
+    def test_close_releases_file_lock_for_new_process(self, tmp_path):
+        db_path = tmp_path / "test.duckdb"
+
+        with patch("phinan.core.database.settings") as mock_settings:
+            mock_settings.database.resolved_path = db_path
+
+            from phinan.core.database import DatabaseManager
+
+            DatabaseManager._instance = None
+            manager = DatabaseManager()
+
+            try:
+                manager.execute("CREATE TABLE lock_test (id INTEGER)")
+                manager.close()
+
+                child_code = (
+                    "import duckdb\n"
+                    "import sys\n"
+                    "conn = duckdb.connect(sys.argv[1])\n"
+                    "conn.execute('SELECT 1')\n"
+                    "conn.close()\n"
+                )
+                result = subprocess.run(
+                    [sys.executable, "-c", child_code, str(db_path)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                assert result.returncode == 0, result.stderr or result.stdout
+            finally:
+                manager.close()
+                DatabaseManager._instance = None
+
+    def test_close_is_idempotent_and_reopens_on_next_query(self, tmp_path):
+        db_path = tmp_path / "test.duckdb"
+
+        with patch("phinan.core.database.settings") as mock_settings:
+            mock_settings.database.resolved_path = db_path
+
+            from phinan.core.database import DatabaseManager
+
+            DatabaseManager._instance = None
+            manager = DatabaseManager()
+
+            try:
+                manager.execute("CREATE TABLE reopen_test (id INTEGER)")
+                manager.close()
+                manager.close()
+
+                manager.execute("INSERT INTO reopen_test (id) VALUES (?)", (1,))
+                result = manager.query("SELECT id FROM reopen_test")
+
+                assert result == [{"id": 1}]
+            finally:
+                manager.close()
+                DatabaseManager._instance = None
+
+
+class TestDatabaseSettings:
+    def test_nested_database_path_env_var_is_supported(self, monkeypatch, tmp_path):
+        db_path = tmp_path / "nested.duckdb"
+        monkeypatch.setenv("PHINAN_DATABASE__PATH", str(db_path))
+        monkeypatch.delenv("PHINAN_DATABASE_PATH", raising=False)
+
+        from phinan.config.settings import Settings
+
+        test_settings = Settings(_env_file=None)
+
+        assert test_settings.database.resolved_path == db_path

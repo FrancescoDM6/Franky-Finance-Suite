@@ -62,11 +62,21 @@ class DatabaseManager:
 
     def _cleanup(self):
         """Clean up connection on exit."""
+        self.close()
+
+    def close(self):
+        """Close the shared database connection.
+
+        Safe to call multiple times. The next query will lazily reopen the
+        connection.
+        """
         if self._writer_conn:
             try:
                 self._writer_conn.close()
             except Exception:
                 pass
+            finally:
+                self._writer_conn = None
 
     def _get_shared_connection(self) -> duckdb.DuckDBPyConnection:
         """Get or create the shared database connection.

@@ -4,9 +4,15 @@ Loaded from DuckDB at session start, persisted on changes.
 Contains user preferences, watchlist, and trading history.
 """
 
-import reflex as rx
+import json
+import logging
 from datetime import datetime
-from typing import Optional
+
+import reflex as rx
+from reflex.style import set_color_mode
+
+
+logger = logging.getLogger(__name__)
 
 
 class UserContextState(rx.State):
@@ -24,8 +30,9 @@ class UserContextState(rx.State):
     # Trading preferences
     risk_tolerance: str = "conservative"  # "conservative" or "aggressive"
     typical_strategy: str = "entry_exit"  # "entry_exit" or "directional"
-    typical_timeframe: str = "2_weeks"  # "2_weeks" or "1_2_months"
+    typical_timeframe: str = "2_weeks"  # "1_week", "2_weeks", "1_2_months", or "varies"
     default_range_period: str = "3mo"  # "1mo", "3mo", "6mo", "1y"
+    dark_mode: bool = False
 
     # Watchlist
     watchlist: list[str] = []
@@ -50,21 +57,34 @@ class UserContextState(rx.State):
         names = {"conservative": "Conservative", "aggressive": "Aggressive", "standard": "Standard"}
         return names.get(self.active_profile, "Standard")
 
+    @rx.var
+    def timeframe_display_name(self) -> str:
+        """Display name for current trading timeframe."""
+        names = {
+            "1_week": "1 week",
+            "2_weeks": "2 weeks",
+            "1_2_months": "1-2 months",
+            "varies": "Varies",
+        }
+        return names.get(self.typical_timeframe, "2 weeks")
+
     async def load_context(self):
         """Load user context from database."""
         if self._loaded:
-            return
+            return set_color_mode("dark" if self.dark_mode else "light")
 
         from ..services import services
 
         try:
             result = services.db.query(
-                "SELECT key, value FROM user_context WHERE key IN (?, ?, ?, ?, ?, ?)",
+                "SELECT key, value FROM user_context WHERE key IN (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "active_profile",
                     "risk_tolerance",
                     "typical_strategy",
                     "typical_timeframe",
+                    "default_range_period",
+                    "dark_mode",
                     "watchlist",
                     "avoid_list",
                 ),
@@ -82,21 +102,24 @@ class UserContextState(rx.State):
                     self.typical_strategy = value
                 elif key == "typical_timeframe":
                     self.typical_timeframe = value
+                elif key == "default_range_period":
+                    self.default_range_period = value
+                elif key == "dark_mode":
+                    self.dark_mode = bool(json.loads(value))
                 elif key == "watchlist":
-                    import json
                     self.watchlist = json.loads(value)
                 elif key == "avoid_list":
-                    import json
                     self.avoid_list = json.loads(value)
 
             self._loaded = True
+            return set_color_mode("dark" if self.dark_mode else "light")
         except Exception as e:
-            print(f"Error loading user context: {e}")
+            logger.error("Error loading user context: %s", e)
 
     def _save_context_value(self, key: str, value: str, value_type: str = "string"):
         """Save a single context value to database."""
         from ..services import services
-        
+
         try:
             services.db.execute(
                 """
@@ -109,11 +132,12 @@ class UserContextState(rx.State):
                 (key, value, value_type, datetime.now()),
             )
         except Exception as e:
-            print(f"Error saving context value: {e}")
+            logger.error("Error saving context value %s: %s", key, e)
 
     def set_profile(self, profile: str):
         """Switch user profile and apply defaults."""
-        self.active_profile = profile.lower()
+        profile_key = profile.lower()
+        self.active_profile = profile_key
 
         # Apply profile-specific defaults
         profile_defaults = {
@@ -137,14 +161,18 @@ class UserContextState(rx.State):
             },
         }
 
-        if profile in profile_defaults:
-            defaults = profile_defaults[profile]
+        if profile_key in profile_defaults:
+            defaults = profile_defaults[profile_key]
             self.risk_tolerance = defaults["risk_tolerance"]
             self.typical_strategy = defaults["typical_strategy"]
             self.typical_timeframe = defaults["typical_timeframe"]
             self.default_range_period = defaults["default_range_period"]
 
         self._save_context_value("active_profile", self.active_profile)
+        self._save_context_value("risk_tolerance", self.risk_tolerance)
+        self._save_context_value("typical_strategy", self.typical_strategy)
+        self._save_context_value("typical_timeframe", self.typical_timeframe)
+        self._save_context_value("default_range_period", self.default_range_period)
 
     def add_to_watchlist(self, symbol: str):
         """Add symbol to watchlist."""
@@ -182,7 +210,24 @@ class UserContextState(rx.State):
 
             self._save_context_value("avoid_list", json.dumps(self.avoid_list), "json")
 
+    def set_typical_timeframe(self, value: str):
+        """Set default trading timeframe."""
+        self.typical_timeframe = value
+        self._save_context_value("typical_timeframe", value)
+
     def set_range_period(self, period: str):
         """Set default range period."""
         self.default_range_period = period
         self._save_context_value("default_range_period", period)
+
+    def set_dark_mode(self, value: bool):
+        """Set dark mode preference."""
+        self.dark_mode = value
+        self._save_context_value("dark_mode", json.dumps(self.dark_mode), "json")
+        return set_color_mode("dark" if self.dark_mode else "light")
+
+    def toggle_dark_mode(self):
+        """Toggle dark mode preference."""
+        self.dark_mode = not self.dark_mode
+        self._save_context_value("dark_mode", json.dumps(self.dark_mode), "json")
+        return set_color_mode("dark" if self.dark_mode else "light")
