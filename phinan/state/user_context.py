@@ -11,6 +11,8 @@ from datetime import datetime
 import reflex as rx
 from reflex.style import set_color_mode
 
+from ..core.async_utils import run_sync
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +71,22 @@ class UserContextState(rx.State):
         return names.get(self.typical_timeframe, "2 weeks")
 
     async def load_context(self):
-        """Load user context from database."""
+        """Load user context from database.
+
+        DB I/O is dispatched through run_sync so the asyncio event loop is
+        not blocked while DuckDB serializes access. Blocking here prevented
+        the websocket from completing its initial state delta when multiple
+        clients connected, which surfaced as a stuck "Connecting" overlay.
+        """
         if self._loaded:
-            return set_color_mode("dark" if self.dark_mode else "light")
+            yield set_color_mode("dark" if self.dark_mode else "light")
+            return
 
         from ..services import services
 
         try:
-            result = services.db.query(
+            result = await run_sync(
+                services.db.query,
                 "SELECT key, value FROM user_context WHERE key IN (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "active_profile",
@@ -112,7 +122,7 @@ class UserContextState(rx.State):
                     self.avoid_list = json.loads(value)
 
             self._loaded = True
-            return set_color_mode("dark" if self.dark_mode else "light")
+            yield set_color_mode("dark" if self.dark_mode else "light")
         except Exception as e:
             logger.error("Error loading user context: %s", e)
 
