@@ -107,7 +107,15 @@ class DailyBriefState(rx.State):
                 try:
                     news = services.market_data.get_news(ticker, max_items=2)
                     for item in news:
-                        news_lines.append(f"- [{ticker}] {item.title}")
+                        published = (
+                            item.published.isoformat()
+                            if getattr(item, "published", None)
+                            else "Unknown date"
+                        )
+                        publisher = item.publisher or "Unknown publisher"
+                        news_lines.append(
+                            f"- [{ticker}] {published} | {publisher} | {item.title}"
+                        )
                         self.news_alerts.append({
                             "ticker": ticker,
                             "title": item.title,
@@ -140,6 +148,13 @@ class DailyBriefState(rx.State):
                 movers_summary=movers_summary,
                 watchlist_summary=watchlist_summary,
                 news_summary=news_summary,
+                analysis_date=today,
+                data_freshness=(
+                    f"Brief data was assembled by the app on {today}. "
+                    "Prices, movers, and news are only current to the fetched app data shown here."
+                ),
+                timeframe=user_ctx.typical_timeframe,
+                avoid_list=", ".join(user_ctx.avoid_list),
             )
 
             # Call LLM

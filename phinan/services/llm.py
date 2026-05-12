@@ -17,6 +17,9 @@ from .circuit_breaker import get_circuit_breaker, with_timeout, DEFAULT_LLM_TIME
 
 logger = logging.getLogger(__name__)
 
+APP_TIMEZONE = "America/New_York"
+BASE_SYSTEM_MARKER = "PHINAN_RUNTIME_CONTEXT"
+
 
 class LLMService:
     """LLM service supporting Gemini (cloud) with Ollama (local) fallback.
@@ -83,6 +86,42 @@ class LLMService:
         except Exception:
             return False
 
+    def _build_base_system_prompt(self) -> str:
+        """Build shared runtime and finance policy for every LLM request."""
+        now = datetime.now(ZoneInfo(APP_TIMEZONE))
+        today = now.date().isoformat()
+        timestamp = now.isoformat(timespec="seconds")
+
+        return f"""[{BASE_SYSTEM_MARKER}]
+Today is {today}.
+Local timezone: {APP_TIMEZONE}.
+Local timestamp: {timestamp}.
+
+Use this injected date for all relative-date reasoning. Ignore any model training cutoff or stale built-in date awareness when deciding what today, tomorrow, yesterday, this week, or this month means.
+
+Strict market-data policy:
+- Do not claim current prices, market levels, rates, earnings, analyst changes, news, options availability, expiration dates, or corporate events unless they are present in the provided prompt/context.
+- If fresh app data is missing or incomplete, say exactly what is missing and avoid filling gaps from model memory.
+- When using provided market data, make clear which assumptions would invalidate the advice.
+
+Finance advice style:
+- Be direct, practical, profile-aware, and risk-aware.
+- Separate observed app data from assumptions.
+- Prefer an explicit action, no-action, or watchlist call when the prompt provides enough evidence.
+- For options, only reference expiration dates, strikes, bids, IV, or open interest that appear in the context.
+"""
+
+    def _compose_system_prompt(self, system: Optional[str] = None) -> str:
+        """Merge shared runtime policy with task-specific system instructions."""
+        if system and BASE_SYSTEM_MARKER in system:
+            return system
+
+        base_system = self._build_base_system_prompt()
+        if not system:
+            return base_system
+
+        return f"{base_system}\nTask-specific instructions:\n{system}"
+
     def chat(
         self,
         messages: list[dict[str, str]],
@@ -126,6 +165,8 @@ class LLMService:
     ) -> dict[str, Any]:
         """Chat using Gemini API with smart fallback based on rate limit type."""
         from .model_cascade import get_cost_tracker, ModelCascade, estimate_tokens
+
+        system = self._compose_system_prompt(system)
 
         # If cascade_model provided, use it first, otherwise use default chain
         if cascade_model:
@@ -319,6 +360,7 @@ class LLMService:
     ) -> dict[str, Any]:
         """Chat using Ollama (local) API with circuit breaker and timeout."""
         breaker = get_circuit_breaker("ollama")
+        system = self._compose_system_prompt(system)
 
         # Check circuit breaker
         if not breaker.allow_request():
@@ -430,6 +472,7 @@ class LLMService:
         """Stream using Gemini API (new google-genai SDK)."""
         try:
             client = self._get_gemini_client()
+            system = self._compose_system_prompt(system)
 
             # Build contents string from messages
             contents_parts = []
@@ -462,6 +505,7 @@ class LLMService:
         """Stream using Ollama API."""
         client = self._get_ollama_client()
         model = model or self._ollama_model
+        system = self._compose_system_prompt(system)
 
         full_messages = []
         if system:

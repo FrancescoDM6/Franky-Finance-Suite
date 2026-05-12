@@ -40,6 +40,9 @@ class ResearchContext:
     portfolio_position: Optional[dict[str, Any]] = None
     options_summary: str = ""
     options_expiration: str = ""
+    analysis_date: str = ""
+    data_freshness: str = ""
+    news_context: str = ""
 
 
 @dataclass
@@ -86,7 +89,9 @@ class SynthesisService:
             "timeframe": context.timeframe,
             "default_range": context.default_range,
             "sentiment": context.news_sentiment,
+            "news_context": context.news_context,
             "options_exp": context.options_expiration,
+            "analysis_date": context.analysis_date,
             # Round price to nearest dollar to avoid noise from minor fluctuations
             "price": round(context.ticker_info.get("current_price", 0) or 0),
             # Include position info if present
@@ -233,6 +238,9 @@ class SynthesisService:
                 portfolio_position=context.portfolio_position,
                 options_summary=context.options_summary,
                 options_expiration=context.options_expiration,
+                analysis_date=context.analysis_date,
+                data_freshness=context.data_freshness,
+                news_context=context.news_context,
             )
 
             # Use task_type for model cascading - research_synthesis uses the most capable model

@@ -1,4 +1,6 @@
+from datetime import datetime
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -50,6 +52,23 @@ class TestLLMServiceGeminiChat:
 
         assert result["content"] == "Test response"
         assert "model" in result
+
+    def test_chat_gemini_injects_runtime_context(self, llm_service):
+        mock_response = MagicMock()
+        mock_response.text = "Test response"
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        llm_service._gemini_client = mock_client
+        llm_service._use_gemini = True
+
+        llm_service.chat([{"role": "user", "content": "What is today?"}])
+
+        contents = mock_client.models.generate_content.call_args.kwargs["contents"]
+        assert "PHINAN_RUNTIME_CONTEXT" in contents
+        assert "Today is" in contents
+        assert "Strict market-data policy" in contents
+        assert "Use this injected date" in contents
 
     def test_chat_gemini_falls_back_on_rate_limit(self, llm_service):
         mock_gemini = MagicMock()
@@ -114,6 +133,25 @@ class TestLLMServiceOllamaChat:
 
         assert result["content"] == "Ollama response"
 
+    def test_chat_ollama_injects_runtime_context(self, llm_service):
+        mock_ollama = MagicMock()
+        mock_ollama.chat.return_value = {"message": {"content": "Ollama response"}}
+        llm_service._ollama_client = mock_ollama
+        llm_service._use_gemini = False
+
+        with patch("phinan.services.llm.get_circuit_breaker") as mock_breaker:
+            mock_breaker.return_value.allow_request.return_value = True
+            mock_breaker.return_value.record_success = MagicMock()
+
+            with patch("phinan.services.llm.with_timeout") as mock_timeout:
+                mock_timeout.side_effect = lambda func, *_args, **_kwargs: func()
+                llm_service.chat([{"role": "user", "content": "Hello"}])
+
+        messages = mock_ollama.chat.call_args.kwargs["messages"]
+        assert messages[0]["role"] == "system"
+        assert "PHINAN_RUNTIME_CONTEXT" in messages[0]["content"]
+        assert "Strict market-data policy" in messages[0]["content"]
+
     def test_chat_ollama_circuit_open_returns_error(self, llm_service):
         llm_service._use_gemini = False
 
@@ -157,6 +195,27 @@ class TestLLMServiceComplete:
         mock_chat.assert_called_once()
         call_args = mock_chat.call_args
         assert call_args[1]["messages"][0]["content"] == "Test prompt"
+
+
+class TestLLMServiceRuntimeContext:
+    def test_base_system_prompt_uses_runtime_date_and_timezone(self, llm_service):
+        fixed_now = datetime(
+            2026, 5, 12, 9, 30, tzinfo=ZoneInfo("America/New_York")
+        )
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                if tz is None:
+                    return fixed_now
+                return fixed_now.astimezone(tz)
+
+        with patch("phinan.services.llm.datetime", FixedDateTime):
+            prompt = llm_service._build_base_system_prompt()
+
+        assert "Today is 2026-05-12" in prompt
+        assert "Local timezone: America/New_York" in prompt
+        assert "2026-05-12T09:30:00" in prompt
 
 
 class TestLLMServiceHealthCheck:

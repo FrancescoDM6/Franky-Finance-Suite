@@ -7,6 +7,9 @@ analysis based on the user's trading profile.
 
 STRATEGY_ANALYSIS_PROMPT = """Analyze {ticker} for a {strategy_type} options trader.
 
+Analysis Date: {analysis_date}
+Data Freshness: {data_freshness}
+
 Company: {company_name}
 Current Price: ${current_price}
 Range Position: {range_position} ({range_percent}% of {range_period} range)
@@ -16,21 +19,28 @@ Quality Assessment: {quality_overall}
 Quality Flags: {quality_flags}
 
 Recent News Sentiment: {news_sentiment}
+Recent News Context:
+{news_context}
 
 Available Options Chain Data:
 {options_context}
 
-IMPORTANT: When recommending specific options trades, use the EXACT expiration dates shown above (e.g., "{expiration_date}"). Do not invent or modify dates.
+{options_guidance}
 {portfolio_context}
 User Profile:
 - Strategy: {profile_description}
 - Typical timeframe: {timeframe}
 - Default range: {default_range}
 
+Strict Sourcing:
+- Use only the current market facts shown in this prompt.
+- If a price, news item, analyst change, or options detail is missing, say it is missing instead of inferring it.
+- Do not use model memory for current market conditions.
+
 Respond in this exact markdown format:
 
 ## Executive Summary
-[2-3 sentences on overall thesis - is this a buy, hold, or avoid? What's the main story?]
+[2-3 sentences. State the thesis and whether this is buy, hold, avoid, watch, or no action.]
 
 ## Bull Case
 - [Key bullish factor 1]
@@ -42,10 +52,12 @@ Respond in this exact markdown format:
 
 ## Actionable Plan
 For {strategy_type}'s {timeframe} timeframe:
-1. **Primary trade:** [Specific action - be direct about direction and timing]
-2. **Alternative:** [Backup approach if primary doesn't work out]
+1. **Primary call:** [Specific action or no-action call, with timing. Choose outright shares, options, or cash/no action based on the evidence.]
+2. **Profile fit:** [Why this fits or does not fit the user's profile]
+3. **Alternative:** [Backup approach if primary does not work]
+4. **Risks / invalidation:** [What would make this thesis wrong]
 {portfolio_guidance}
-Be direct and specific with strikes and timeframes that match the user's style.
+Do not force an options trade. If buying or selling shares outright is the cleaner recommendation, say that directly. Be direct and specific, but only cite strikes, expirations, bids, IV, or open interest that are shown in the options context.
 """
 
 
@@ -107,6 +119,9 @@ def build_analysis_prompt(
     portfolio_position: dict = None,
     options_summary: str = "",
     options_expiration: str = "",
+    analysis_date: str = "",
+    data_freshness: str = "",
+    news_context: str = "",
 ) -> str:
     """Build the strategy analysis prompt with all data filled in.
     
@@ -131,10 +146,26 @@ User's Position:
             portfolio_guidance = "\nNote: User is underwater on this position. Consider mentioning recovery strategies or tax-loss harvesting."
         else:
             portfolio_guidance = "\nNote: Factor in the user's existing position when suggesting trades."
+
+    if options_summary:
+        options_context = options_summary
+        options_guidance = (
+            "IMPORTANT: When recommending specific options trades, use the exact "
+            f"expiration dates shown above (for example, {options_expiration or 'the date shown'}). "
+            "Do not invent or modify dates."
+        )
+    else:
+        options_context = "No options data provided."
+        options_guidance = (
+            "IMPORTANT: No options chain data was provided. Do not recommend a "
+            "specific option contract, strike, premium, IV, or expiration."
+        )
     
     return STRATEGY_ANALYSIS_PROMPT.format(
         ticker=ticker,
         strategy_type=profile_name,
+        analysis_date=analysis_date or "Not provided",
+        data_freshness=data_freshness or "Use only the data shown in this prompt.",
         company_name=ticker_info.get("name") or "Unknown",
         current_price=f"{ticker_info.get('current_price') or 0:.2f}",
         range_position=_get_range_position_label(price_range.get("percent_of_range") or 0.5),
@@ -145,12 +176,14 @@ User's Position:
         quality_overall=quality_check.get("overall") or "N/A",
         quality_flags=", ".join(quality_check.get("flags") or []),
         news_sentiment=news_sentiment or "No sentiment data",
+        news_context=news_context or "No dated news context provided.",
         portfolio_context=portfolio_context,
         profile_description=profile_description,
         timeframe=timeframe,
         default_range=default_range,
         portfolio_guidance=portfolio_guidance,
-        options_context=options_summary or "No options data available.",
+        options_context=options_context,
+        options_guidance=options_guidance,
         expiration_date=options_expiration or "the date shown",
     )
 
