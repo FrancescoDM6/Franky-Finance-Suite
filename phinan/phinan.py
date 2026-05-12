@@ -4,9 +4,6 @@ Personal finance app with AI assistant as the primary interface.
 Modules (research, notes, options, portfolio) serve as tools the assistant can invoke.
 """
 
-# Performance: Install uvloop for 2-4x event loop improvement (Unix only)
-# Must be done BEFORE importing asyncio or any async frameworks
-import asyncio
 import logging
 
 # Configure basic logging so warnings/infos show up in the reflex console
@@ -16,43 +13,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-try:
-    import uvloop
-
-    uvloop.install()
-
-    # Log successful uvloop installation and performance boost
-    logger.info(
-        "uvloop successfully installed - Performance boost active (2-4x faster event loop)"
-    )
-
-    # Verify which event loop policy is active
-    policy = asyncio.get_event_loop_policy()
-    policy_type = type(policy).__name__
-    logger.info(f"Event loop policy: {policy_type}")
-
-    # Performance indicator for monitoring
-    if hasattr(policy, "new_event_loop"):
-        test_loop = policy.new_event_loop()
-        if "uvloop" in str(type(test_loop)):
-            logger.info(
-                "PERFORMANCE: uvloop is active and ready for production workloads"
-            )
-        test_loop.close()
-
-except ImportError:
-    # uvloop not available (Windows) - use default asyncio event loop
-    logger.info(
-        "uvloop not available (Windows or not installed) - using default asyncio event loop"
-    )
-    logger.info(
-        "PERFORMANCE: Running with standard asyncio (consider uvloop in Unix production)"
-    )
-
-except Exception as e:
-    # Log any other errors during uvloop setup
-    logger.error(f"uvloop installation failed: {e}")
-    logger.info("PERFORMANCE: Falling back to default asyncio event loop")
+# NOTE: do NOT call uvloop.install() here.
+# Granian (the production server) forks its workers from this parent
+# process. Installing uvloop at module level allocates libuv state and
+# sets a global event-loop policy, both of which are inherited across
+# fork and cause the worker child to SIGSEGV on startup. Granian on
+# Linux uses its own Rust event loop (rloop) by default, which is
+# already as fast as uvloop, so there is no performance benefit to
+# installing uvloop in the parent.
 
 import reflex as rx
 
