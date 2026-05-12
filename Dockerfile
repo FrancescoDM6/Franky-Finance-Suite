@@ -55,6 +55,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MALLOC_MMAP_THRESHOLD_=131072 \
     # Database path
     PHINAN_DATABASE__PATH=/data/phinan.duckdb \
+    # Keep Reflex/Granian from spawning host-CPU-count workers in small containers
+    GRANIAN_WORKERS=1 \
     # Limit thread spawning for NumPy/OpenBLAS/MKL/SciPy (Railway has process limits)
     OPENBLAS_NUM_THREADS=1 \
     MKL_NUM_THREADS=1 \

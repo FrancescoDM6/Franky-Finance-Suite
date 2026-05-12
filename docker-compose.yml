@@ -20,6 +20,8 @@ services:
       - DOMAIN=${DOMAIN:-}
       # Keep DuckDB on the persisted Docker volume even if env_file sets a local path
       - PHINAN_DATABASE__PATH=/data/phinan.duckdb
+      # Reflex uses Redis to calculate host-CPU worker counts; keep Granian within VM memory
+      - GRANIAN_WORKERS=1
       - REDIS_URL=redis://redis:6379
     volumes:
       # Persist DuckDB data

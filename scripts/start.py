@@ -104,7 +104,14 @@ def start_reflex():
 
     print("DEBUG: Environment:", {
         k: v for k, v in env.items()
-        if k in ["REFLEX_ENV", "PORT", "API_URL", "REDIS_URL", "REFLEX_BACKEND_PORT"]
+        if k in [
+            "REFLEX_ENV",
+            "PORT",
+            "API_URL",
+            "REDIS_URL",
+            "REFLEX_BACKEND_PORT",
+            "GRANIAN_WORKERS",
+        ]
     })
 
     # Use reflex run --backend-only instead of direct uvicorn
