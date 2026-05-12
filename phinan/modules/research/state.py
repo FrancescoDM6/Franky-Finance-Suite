@@ -883,6 +883,7 @@ class ResearchState(rx.State):
         from ...services.synthesis import ResearchContext
         from ...state.user_context import UserContextState
         from .profiles import get_profile
+        from datetime import datetime
 
         # Check if synthesis service is available
         if not services.synthesis.health_check():
@@ -924,6 +925,20 @@ class ResearchState(rx.State):
                     sentiment_counts.get(item.sentiment_label, 0) + 1
                 )
             dominant_sentiment = max(sentiment_counts, key=sentiment_counts.get)
+            analysis_date = datetime.now().date().isoformat()
+            news_context_lines = []
+            for item in self.recent_news[:8]:
+                publisher = item.publisher or "Unknown publisher"
+                published = item.published or "Unknown date"
+                news_context_lines.append(
+                    f"- {published} | {publisher} | {item.title}"
+                )
+            news_context = "\n".join(news_context_lines)
+            data_freshness = (
+                f"Research data was assembled by the app on {analysis_date}. "
+                "Ticker, range, analyst, news, and options facts are only current "
+                "to the fetched app data shown here."
+            )
 
             # Build context and generate synthesis via service
             context = ResearchContext(
@@ -940,6 +955,9 @@ class ResearchState(rx.State):
                 portfolio_position=portfolio_position,
                 options_summary=self.options_summary,
                 options_expiration=self.selected_expiration,
+                analysis_date=analysis_date,
+                data_freshness=data_freshness,
+                news_context=news_context,
             )
 
             result = await services.synthesis.generate_research_synthesis_async(

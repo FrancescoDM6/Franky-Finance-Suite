@@ -3,14 +3,17 @@
 Extracts text from PDFs and helps structure it into Note objects using LLMs.
 """
 
+import json
+import logging
+from datetime import date
 from io import BytesIO
 from typing import Optional
-import json
-from datetime import date, datetime
 
 import pypdf
 from ..models.structured_note import StructuredNote, ObservationDate
-from ..config.settings import settings  # Ensure settings access for LLM keys
+
+logger = logging.getLogger(__name__)
+
 
 class PDFParserService:
     """Service to handle PDF ingestion and parsing."""
@@ -35,17 +38,21 @@ class PDFParserService:
                 text += page.extract_text() + "\n"
             return text
         except Exception as e:
-            print(f"Error reading PDF: {e}")
+            logger.error("Error reading PDF: %s", e)
             return ""
 
     def parse_term_sheet(self, text: str) -> Optional[StructuredNote]:
         """Parse term sheet text into StructuredNote using LLM."""
         llm = self._get_llm()
         if not llm.health_check():
-            print("LLM service unavailable")
+            logger.warning("LLM service unavailable")
             return None
             
-        # Prompt for the LLM
+        system = (
+            "You extract structured product terms from source text. Return JSON only. "
+            "Do not estimate or infer missing financial terms unless the source text "
+            "directly supports the value. Use null for missing fields."
+        )
         prompt = f"""
         You are a financial analyst expert in structured products.
         Extract the key parameters from the following Term Sheet text into JSON format.
@@ -72,7 +79,8 @@ class PDFParserService:
             ]
         }}
         
-        If a field is missing, estimate it or leave null, but try to infer from context.
+        If a field is missing, leave it null. Do not estimate coupon rates, barriers,
+        strike prices, dates, currencies, or tickers unless they are supported by the text.
         Standardize frequencies to: Monthly, Quarterly, Semi-Annual, Annual.
         Standardize barriers to % of initial strike (e.g., 60.0 for 60%).
         
@@ -83,7 +91,7 @@ class PDFParserService:
         try:
             # Call LLM
             # We ask for JSON mode from the LLM service if available, or just raw text
-            response_text = llm.complete(prompt)
+            response_text = llm.complete(prompt, system=system)
             
             # Clean response to get JSON
             json_str = self._clean_json(response_text)
@@ -110,7 +118,7 @@ class PDFParserService:
             return StructuredNote(**data)
             
         except Exception as e:
-            print(f"Error parsing term sheet from LLM: {e}")
+            logger.error("Error parsing term sheet from LLM: %s", e)
             return None
 
     def _clean_json(self, text: str) -> str:

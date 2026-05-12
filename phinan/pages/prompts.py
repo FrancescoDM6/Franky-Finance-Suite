@@ -3,6 +3,12 @@
 
 DAILY_BRIEF_PROMPT = """Generate a brief morning summary for {profile_name}.
 
+Brief Date: {analysis_date}
+Data Freshness: {data_freshness}
+User Profile: {profile_name}
+Typical Timeframe: {timeframe}
+Avoid List: {avoid_list}
+
 **Portfolio Status:**
 - Total Value: ${total_value:,.2f}
 - Total P/L: {total_pl_pct:+.1f}%
@@ -17,6 +23,11 @@ DAILY_BRIEF_PROMPT = """Generate a brief morning summary for {profile_name}.
 
 **Recent News for Holdings:**
 {news_summary}
+
+Strict Sourcing:
+- Use only the portfolio, watchlist, movers, and dated news data shown above.
+- If fresh prices, news, or market conditions are missing, say so plainly.
+- Do not use model memory for current market conditions.
 
 Respond in this markdown format:
 
@@ -56,6 +67,10 @@ def build_daily_brief_prompt(
     movers_summary: str,
     watchlist_summary: str,
     news_summary: str,
+    analysis_date: str = "",
+    data_freshness: str = "",
+    timeframe: str = "",
+    avoid_list: str = "",
 ) -> str:
     """Build the daily brief prompt with all data filled in."""
     section_title = PROFILE_SECTIONS.get(profile_key.lower(), "Opportunities")
@@ -70,4 +85,8 @@ def build_daily_brief_prompt(
         watchlist_summary=watchlist_summary or "No watchlist items.",
         news_summary=news_summary or "No recent news for holdings.",
         profile_section_title=section_title,
+        analysis_date=analysis_date or "Not provided",
+        data_freshness=data_freshness or "Use only the data shown in this prompt.",
+        timeframe=timeframe or "Not specified",
+        avoid_list=avoid_list or "None",
     )

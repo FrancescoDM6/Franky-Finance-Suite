@@ -83,6 +83,16 @@ class TestSynthesisServiceContextHash:
 
         assert hash1 != hash2
 
+    def test_context_hash_includes_news_context(
+        self, synthesis_service, sample_research_context
+    ):
+        hash1 = synthesis_service._compute_context_hash(sample_research_context)
+
+        sample_research_context.news_context = "2026-05-12 | Reuters | New headline"
+        hash2 = synthesis_service._compute_context_hash(sample_research_context)
+
+        assert hash1 != hash2
+
     def test_context_hash_rounds_price(
         self, synthesis_service, sample_research_context
     ):
