@@ -2,8 +2,8 @@
 # Cloud-friendly (no CUDA, minimal ML)
 
 # Core Framework
-reflex>=0.8.0
-reflex-hosting-cli>=0.1.0
+reflex==0.8.24.post1
+reflex-hosting-cli==0.1.61
 fastapi>=0.115.0
 starlette>=0.40.0
 

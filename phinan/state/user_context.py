@@ -9,7 +9,6 @@ import logging
 from datetime import datetime
 
 import reflex as rx
-from reflex.style import set_color_mode
 
 from ..core.async_utils import run_sync
 
@@ -79,7 +78,6 @@ class UserContextState(rx.State):
         clients connected, which surfaced as a stuck "Connecting" overlay.
         """
         if self._loaded:
-            yield set_color_mode("dark" if self.dark_mode else "light")
             return
 
         from ..services import services
@@ -122,7 +120,6 @@ class UserContextState(rx.State):
                     self.avoid_list = json.loads(value)
 
             self._loaded = True
-            yield set_color_mode("dark" if self.dark_mode else "light")
         except Exception as e:
             logger.error("Error loading user context: %s", e)
 
@@ -234,10 +231,8 @@ class UserContextState(rx.State):
         """Set dark mode preference."""
         self.dark_mode = value
         self._save_context_value("dark_mode", json.dumps(self.dark_mode), "json")
-        return set_color_mode("dark" if self.dark_mode else "light")
 
     def toggle_dark_mode(self):
         """Toggle dark mode preference."""
         self.dark_mode = not self.dark_mode
         self._save_context_value("dark_mode", json.dumps(self.dark_mode), "json")
-        return set_color_mode("dark" if self.dark_mode else "light")
