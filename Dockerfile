@@ -55,7 +55,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MALLOC_MMAP_THRESHOLD_=131072 \
     # Database path
     PHINAN_DATABASE__PATH=/data/phinan.duckdb \
-    # Keep Reflex/Granian from spawning host-CPU-count workers in small containers
+    # DuckDB only allows one read-write process per file. Reflex 0.9 spawns
+    # (cpu_count*2)+1 Granian workers when Redis is configured, and every
+    # worker after the first fails to acquire the file lock - which is what
+    # surfaced as "lock files when multiple devices connect" and a stuck
+    # "Connecting" overlay. Force a single worker so the embedded DB stays
+    # usable.
     GRANIAN_WORKERS=1 \
     # Limit thread spawning for NumPy/OpenBLAS/MKL/SciPy (Railway has process limits)
     OPENBLAS_NUM_THREADS=1 \

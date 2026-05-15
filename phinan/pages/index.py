@@ -7,6 +7,7 @@ import reflex as rx
 
 from ..components.layout import main_layout
 from ..components.ui import content_card, synthesis_card
+from ..core.async_utils import run_sync
 from ..state.user_context import UserContextState
 from ..modules.portfolio.state import PortfolioState
 from .prompts import build_daily_brief_prompt
@@ -90,7 +91,7 @@ class DailyBriefState(rx.State):
             watchlist_lines = []
             for symbol in user_ctx.watchlist[:5]:
                 try:
-                    info = services.market_data.get_ticker_info(symbol)
+                    info = await services.market_data.get_ticker_info_async(symbol)
                     if info:
                         watchlist_lines.append(f"- {symbol}: ${info.current_price:.2f}")
                 except Exception as e:
@@ -105,7 +106,7 @@ class DailyBriefState(rx.State):
             self.news_alerts = []
             for ticker in portfolio.position_tickers[:5]:
                 try:
-                    news = services.market_data.get_news(ticker, max_items=2)
+                    news = await services.market_data.get_news_async(ticker, max_items=2)
                     for item in news:
                         published = (
                             item.published.isoformat()
@@ -128,7 +129,7 @@ class DailyBriefState(rx.State):
             news_summary = "\n".join(news_lines[:6]) if news_lines else ""
 
             # Check if LLM is available
-            if not services.llm.health_check():
+            if not await run_sync(services.llm.health_check):
                 logger.info("LLM unavailable, using fallback brief.")
                 self.brief_content = self._build_fallback_brief(
                     profile_name, portfolio, user_ctx
@@ -160,7 +161,7 @@ class DailyBriefState(rx.State):
             # Call LLM
             self.loading_status = "Generating summary with AI..."
             yield
-            response = services.llm.complete(prompt)
+            response = await services.llm.complete_async(prompt)
             self.brief_content = response
             self.brief_generated_at = datetime.now().strftime("%I:%M %p")
             self._brief_date = today  # Mark brief as generated for today

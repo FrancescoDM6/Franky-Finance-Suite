@@ -6,7 +6,6 @@ Provides configurable TTLs per data type.
 
 import json
 import logging
-import random
 from datetime import datetime, timedelta, timezone
 from dataclasses import asdict
 from typing import Any, Optional
@@ -110,21 +109,25 @@ class CacheService:
             else:
                 data_dict = data
 
+            # The schema defines id with DEFAULT nextval('market_data_cache_id_seq')
+            # and UNIQUE(ticker_symbol, data_type), so omit id entirely and let
+            # the sequence assign it. The previous code passed a random int32 as
+            # the PK, which eventually collides by birthday paradox; DuckDB 1.5.x
+            # then throws an unhandled C++ FatalException during commit cleanup
+            # which terminate()s the entire worker process.
             query = """
-                INSERT INTO market_data_cache 
-                (id, ticker_symbol, data_type, data, expires_at, cached_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO market_data_cache
+                (ticker_symbol, data_type, data, expires_at, cached_at)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT (ticker_symbol, data_type) DO UPDATE SET
                     data = excluded.data,
                     expires_at = excluded.expires_at,
                     cached_at = excluded.cached_at
             """
 
-            cache_id = random.randint(0, 2**31 - 1)
             self._db.execute(
                 query,
                 (
-                    cache_id,
                     key.upper(),
                     data_type,
                     json.dumps(data_dict),

@@ -1,38 +1,32 @@
-# Phinan Finance Suite - Caddyfile
-# When DOMAIN is set (e.g., phinan.example.com), Caddy auto-provisions HTTPS.
-# Otherwise, serves on port 80 for local testing.
-
 {$DOMAIN::80}
 
-# Logging
 log {
     output stdout
     level INFO
     format console
 }
 
-# Health check endpoint
 respond /healthz "OK" 200
 
-# Static file root
 root * /srv
-
-# Compression
 encode gzip
 
-# Backend API routes (proxy to Reflex backend)
+# Backend routes MUST be handled before SPA fallback
 @backend {
     path /_event /_event/* /ping /_upload /_upload/* /health/* /api/* /_ws/*
 }
-reverse_proxy @backend 127.0.0.1:8000 {
-    flush_interval -1
-    header_up Host {host}
-    header_up X-Real-IP {remote_host}
-    header_up X-Forwarded-For {remote_host}
-    header_up X-Forwarded-Proto {scheme}
+handle @backend {
+    reverse_proxy 127.0.0.1:8000 {
+        flush_interval -1
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
 }
 
-# SPA fallback
-try_files {path} /index.html
-file_server
-
+# Static files + SPA fallback for everything else
+handle {
+    try_files {path} /index.html
+    file_server
+}
