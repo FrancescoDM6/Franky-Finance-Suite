@@ -1427,13 +1427,14 @@ class ResearchState(rx.State):
             strike = row["strike"]
             info = strike_info.get(strike, {})
             iv_raw = float(row.get("impliedVolatility", 0) or 0)
+            oi_raw = row.get("openInterest", 0) or 0
 
             rows.append(
                 {
                     "strike": float(strike),
                     "bid": float(row.get("bid", 0) or 0),
                     "ask": float(row.get("ask", 0) or 0),
-                    "oi": int(row.get("openInterest", 0) or 0),
+                    "oi": 0 if oi_raw != oi_raw else int(oi_raw),
                     "iv": iv_raw,
                     "iv_pct": f"{iv_raw * 100:.0f}%",  # Pre-formatted for display
                     "annotation": info.get("annotation", ""),
