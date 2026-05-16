@@ -3,6 +3,7 @@
 Manages ticker research data, quality checks, and analysis.
 """
 
+import math
 import reflex as rx
 from typing import Any, Optional
 from pydantic import BaseModel
@@ -1434,7 +1435,7 @@ class ResearchState(rx.State):
                     "strike": float(strike),
                     "bid": float(row.get("bid", 0) or 0),
                     "ask": float(row.get("ask", 0) or 0),
-                    "oi": 0 if oi_raw != oi_raw else int(oi_raw),
+                    "oi": 0 if (isinstance(oi_raw, float) and math.isnan(oi_raw)) else int(oi_raw),
                     "iv": iv_raw,
                     "iv_pct": f"{iv_raw * 100:.0f}%",  # Pre-formatted for display
                     "annotation": info.get("annotation", ""),
