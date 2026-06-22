@@ -31,7 +31,7 @@ def project_root() -> Path:
 def mock_settings():
     with patch("phinan.config.settings.settings") as mock:
         mock.gemini.api_key = "test-api-key"
-        mock.gemini.model = "gemini-2.0-flash-exp"
+        mock.gemini.model = "gemini-3.1-flash-lite"
         mock.gemini.timeout = 60
         mock.ollama.base_url = "http://localhost:11434"
         mock.ollama.model = "llama3.2:latest"
@@ -186,7 +186,7 @@ def sample_portfolio_positions() -> list[dict]:
 def sample_llm_response() -> dict:
     return {
         "content": "Based on the analysis, AAPL shows strong fundamentals with solid earnings growth.",
-        "model": "gemini-2.0-flash-exp",
+        "model": "gemini-3.1-flash-lite",
     }
 
 
