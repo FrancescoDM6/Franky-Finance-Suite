@@ -141,7 +141,7 @@ All settings use the `PHINAN_` prefix and are defined in
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `PHINAN_GEMINI_API_KEY` | _(empty)_ | Required to use Gemini |
-| `PHINAN_GEMINI_MODEL` | `gemini-3.0-flash-preview` | Model name |
+| `PHINAN_GEMINI_MODEL` | `gemini-3.1-flash-lite` | Model name |
 
 ### Ollama LLM (fallback)
 | Variable | Default | Description |
@@ -240,13 +240,13 @@ metrics the UI emphasizes.
 
 ## Deployment
 
-The project targets Railway using a split frontend/backend container. Do **not**
-use `reflex run` in production.
+The project targets Railway using a split frontend/backend container.
 
 - **Frontend:** Caddy serves the pre-compiled static React app and reverse-proxies
   API requests (listens on `$PORT`).
-- **Backend:** Uvicorn runs the backend directly at `127.0.0.1:8000` (skips
-  runtime frontend compilation to save memory).
+- **Backend:** `scripts/start.py` runs migrations, then starts the backend via
+  `reflex run --backend-only --env prod` on port 8000. This properly initializes
+  the Reflex runtime without re-compiling the frontend at startup.
 - **State:** Redis (persistent) when `REDIS_URL` is set; otherwise disk.
 
 ### Production environment variables
@@ -255,8 +255,9 @@ use `reflex run` in production.
 | `API_URL` | Public URL of the deployment (e.g. `https://yourapp.up.railway.app`) |
 | `REDIS_URL` | Redis connection string (enables Redis state manager) |
 
-The build compiles assets (`reflex export`) and the runtime serves them via
-Caddy + Uvicorn. See `Dockerfile`, `Caddyfile`, and `docker-compose.yml`.
+The Docker build compiles frontend assets (`reflex export`), then the runtime
+serves them via Caddy while `start.py` handles the backend. See `Dockerfile`,
+`Caddyfile`, `scripts/start.py`, and `docker-compose.yml`.
 
 ## Troubleshooting
 

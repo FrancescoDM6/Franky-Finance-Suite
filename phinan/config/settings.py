@@ -105,7 +105,7 @@ class GeminiSettings(BaseSettings):
         description="Gemini API key from aistudio.google.com",
     )
     model: str = Field(
-        default="gemini-3.0-flash-preview",
+        default="gemini-3.1-flash-lite",
         description="Gemini model to use",
     )
 

@@ -6,7 +6,6 @@ Support weekly options plays with research and tracking.
 import reflex as rx
 
 from ...components.layout import main_layout
-from ...state.app import AppState
 from ...state.user_context import UserContextState
 from ..portfolio.state import PortfolioState
 

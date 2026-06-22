@@ -4,8 +4,6 @@ Use for: "find stocks similar to X", clustering news articles,
 deduplicating news, semantic search in notes.
 """
 
-from typing import Optional
-
 from ..config.settings import settings
 
 

@@ -205,7 +205,7 @@ Finance advice style:
             )
             try:
                 return self._chat_ollama(messages, system, None, tools)
-            except Exception as ollama_error:
+            except Exception:
                 return {
                     "content": "AI analysis is temporarily unavailable — the daily API quota has been reached. Please try again tomorrow, or configure a local Ollama instance as a fallback.",
                     "error": True,
@@ -402,7 +402,7 @@ Finance advice style:
 
             return result
 
-        except TimeoutError as e:
+        except TimeoutError:
             breaker.record_failure()
             return {
                 "content": f"Ollama request timed out after {DEFAULT_LLM_TIMEOUT}s. Try a shorter prompt or check if Ollama is overloaded.",

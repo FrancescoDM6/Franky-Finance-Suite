@@ -34,9 +34,9 @@ try:
         Counter,
         Histogram,
         Gauge,
-        Info,
-        REGISTRY,
-        generate_latest,
+        Info,  # noqa: F401
+        REGISTRY,  # noqa: F401
+        generate_latest,  # noqa: F401
     )
 
     _prometheus_available = True

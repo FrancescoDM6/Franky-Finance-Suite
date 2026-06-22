@@ -27,7 +27,7 @@ _prometheus_available = False
 _histograms: dict[str, Any] = {}
 
 try:
-    from prometheus_client import Histogram, Counter, Gauge
+    from prometheus_client import Histogram, Counter, Gauge  # noqa: F401
 
     _prometheus_available = True
 except ImportError:

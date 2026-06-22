@@ -6,8 +6,8 @@ yfinance kept as fallback for reliability.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
-from typing import Any, Optional, Protocol
+from datetime import datetime, timedelta
+from typing import Optional, Protocol
 import logging
 
 import pandas as pd
@@ -408,12 +408,11 @@ class MarketDataService:
 
     def health_check(self) -> bool:
         """Check if market data service is available."""
+        import importlib.util
         try:
             if self._provider_name == "openbb":
-                from openbb import obb
-            else:
-                import yfinance
-            return True
+                return importlib.util.find_spec("openbb") is not None
+            return importlib.util.find_spec("yfinance") is not None
         except Exception:
             return False
 

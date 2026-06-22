@@ -5,7 +5,6 @@ Handles PDF file upload, parsing, and valuation logic.
 
 import reflex as rx
 from typing import Optional, List
-import base64
 
 from ...services import services
 from ...models.structured_note import StructuredNote, NoteValuation
