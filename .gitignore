@@ -2,6 +2,13 @@
 assets/external/
 .web
 .states
+
+# Build/deploy artifacts
+*.tar.gz
+
+# Editor settings
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
