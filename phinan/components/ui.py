@@ -28,7 +28,7 @@ def content_card(*children, **kwargs) -> rx.Component:
         *children,
         padding="24px",
         background="var(--pfs-surface)",
-        border=f"1px solid var(--gray-a4)",
+        border="1px solid var(--gray-a4)",
         border_radius="12px",
         color="var(--pfs-text)",  # Enforce text color on custom surface
         **kwargs
@@ -41,7 +41,7 @@ def synthesis_card(*children, **kwargs) -> rx.Component:
         *children,
         padding="28px",
         background="var(--pfs-synthesis-bg)",
-        border=f"1px solid var(--pfs-synthesis-border)",
+        border="1px solid var(--pfs-synthesis-border)",
         border_radius="16px",
         box_shadow="0 2px 8px rgba(0,0,0,0.04)",
         color="var(--pfs-text)",  # Enforce text color on custom surface

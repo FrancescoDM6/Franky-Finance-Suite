@@ -5,7 +5,6 @@ All settings can be overridden via PHINAN_ prefixed environment variables.
 """
 
 from pathlib import Path
-from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

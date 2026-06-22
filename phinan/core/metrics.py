@@ -21,8 +21,7 @@ Usage:
 import logging
 import time
 from contextlib import contextmanager
-from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +29,13 @@ _prometheus_available = False
 _initialized = False
 
 try:
-    from prometheus_client import (
+    from prometheus_client import (  # noqa: F401
         Counter,
         Histogram,
         Gauge,
-        Info,  # noqa: F401
-        REGISTRY,  # noqa: F401
-        generate_latest,  # noqa: F401
+        Info,
+        REGISTRY,
+        generate_latest,
     )
 
     _prometheus_available = True

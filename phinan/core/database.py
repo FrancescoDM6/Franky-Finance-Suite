@@ -10,7 +10,6 @@ Key patterns:
 import threading
 import atexit
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Generator, Optional
 
 import duckdb
