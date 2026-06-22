@@ -145,6 +145,71 @@ class TestYFinanceProviderNews:
         assert result == []
 
 
+class TestYFinanceProviderOptions:
+    def test_get_options_expirations_returns_ticker_expirations(
+        self, yfinance_provider
+    ):
+        mock_ticker = MagicMock()
+        mock_ticker.options = ["2026-07-17", "2026-08-21"]
+
+        with patch.object(yfinance_provider, "_get_yf") as mock_yf:
+            mock_yf.return_value.Ticker.return_value = mock_ticker
+
+            result = yfinance_provider.get_options_expirations("AAPL")
+
+        assert result == ["2026-07-17", "2026-08-21"]
+
+    def test_get_options_chain_returns_calls_and_puts(self, yfinance_provider):
+        calls = pd.DataFrame({"strike": [200.0]})
+        puts = pd.DataFrame({"strike": [190.0]})
+        mock_ticker = MagicMock()
+        mock_ticker.option_chain.return_value.calls = calls
+        mock_ticker.option_chain.return_value.puts = puts
+
+        with patch.object(yfinance_provider, "_get_yf") as mock_yf:
+            mock_yf.return_value.Ticker.return_value = mock_ticker
+
+            result = yfinance_provider.get_options_chain("AAPL", "2026-07-17")
+
+        assert result["calls"].equals(calls)
+        assert result["puts"].equals(puts)
+        mock_ticker.option_chain.assert_called_once_with("2026-07-17")
+
+
+class TestYFinanceProviderAnalystDetails:
+    def test_get_analyst_details_maps_yfinance_data(self, yfinance_provider):
+        mock_ticker = MagicMock()
+        mock_ticker.recommendations_summary = pd.DataFrame(
+            [{"strongBuy": 5, "buy": 4, "hold": 3, "sell": 2, "strongSell": 1}]
+        )
+        mock_ticker.info = {
+            "targetLowPrice": 170.0,
+            "targetMeanPrice": 200.0,
+            "targetMedianPrice": 198.0,
+            "targetHighPrice": 225.0,
+        }
+        mock_ticker.upgrades_downgrades = pd.DataFrame(
+            [
+                {
+                    "Firm": "Example Research",
+                    "ToGrade": "Buy",
+                    "FromGrade": "Hold",
+                    "Action": "up",
+                }
+            ],
+            index=[datetime(2026, 6, 20)],
+        )
+
+        with patch.object(yfinance_provider, "_get_yf") as mock_yf:
+            mock_yf.return_value.Ticker.return_value = mock_ticker
+
+            result = yfinance_provider.get_analyst_details("AAPL")
+
+        assert result["recommendation_counts"]["strong_buy"] == 5
+        assert result["price_targets"]["mean"] == 200.0
+        assert result["recent_changes"][0]["firm"] == "Example Research"
+
+
 class TestMarketDataServiceCaching:
     def test_get_ticker_info_uses_cache(self, mock_cache):
         cached_data = {
@@ -165,9 +230,9 @@ class TestMarketDataServiceCaching:
         mock_cache.get.return_value = cached_data
 
         with patch(
-            "phinan.services.market_data.get_cache_service", return_value=mock_cache
+            "phinan.services.market_data.service.get_cache_service", return_value=mock_cache
         ):
-            with patch("phinan.services.market_data.settings") as mock_settings:
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
                 mock_settings.market_data.provider = "yfinance"
 
                 service = MarketDataService()
@@ -188,9 +253,9 @@ class TestMarketDataServiceCaching:
         )
 
         with patch(
-            "phinan.services.market_data.get_cache_service", return_value=mock_cache
+            "phinan.services.market_data.service.get_cache_service", return_value=mock_cache
         ):
-            with patch("phinan.services.market_data.settings") as mock_settings:
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
                 mock_settings.market_data.provider = "yfinance"
 
                 service = MarketDataService()
@@ -216,9 +281,9 @@ class TestMarketDataServiceFallback:
         )
 
         with patch(
-            "phinan.services.market_data.get_cache_service", return_value=mock_cache
+            "phinan.services.market_data.service.get_cache_service", return_value=mock_cache
         ):
-            with patch("phinan.services.market_data.settings") as mock_settings:
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
                 mock_settings.market_data.provider = "openbb"
                 mock_settings.market_data.openbb_provider = "yfinance"
 
@@ -230,6 +295,48 @@ class TestMarketDataServiceFallback:
 
         assert result.symbol == "AAPL"
         mock_fallback.get_ticker_info.assert_called_once_with("AAPL")
+
+
+class TestMarketDataServiceCapabilities:
+    def test_delegates_options_requests_to_options_provider(self, mock_cache):
+        with patch(
+            "phinan.services.market_data.service.get_cache_service",
+            return_value=mock_cache,
+        ):
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
+                mock_settings.market_data.provider = "yfinance"
+                service = MarketDataService()
+
+        options_provider = MagicMock()
+        options_provider.get_options_expirations.return_value = ["2026-07-17"]
+        service._options_provider = options_provider
+
+        result = service.get_options_expirations("AAPL")
+
+        assert result == ["2026-07-17"]
+        options_provider.get_options_expirations.assert_called_once_with("AAPL")
+
+    def test_delegates_analyst_requests_to_analyst_provider(self, mock_cache):
+        with patch(
+            "phinan.services.market_data.service.get_cache_service",
+            return_value=mock_cache,
+        ):
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
+                mock_settings.market_data.provider = "yfinance"
+                service = MarketDataService()
+
+        analyst_provider = MagicMock()
+        analyst_provider.get_analyst_details.return_value = {
+            "recommendation_counts": {},
+            "price_targets": {},
+            "recent_changes": [],
+        }
+        service._analyst_provider = analyst_provider
+
+        result = service.get_analyst_details("AAPL")
+
+        assert result["recent_changes"] == []
+        analyst_provider.get_analyst_details.assert_called_once_with("AAPL")
 
 
 class TestPriceRangeCalculation:
@@ -248,9 +355,9 @@ class TestPriceRangeCalculation:
         mock_provider.get_price_history.return_value = mock_df
 
         with patch(
-            "phinan.services.market_data.get_cache_service", return_value=mock_cache
+            "phinan.services.market_data.service.get_cache_service", return_value=mock_cache
         ):
-            with patch("phinan.services.market_data.settings") as mock_settings:
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
                 mock_settings.market_data.provider = "yfinance"
 
                 service = MarketDataService()
@@ -271,9 +378,9 @@ class TestPriceRangeCalculation:
         mock_provider.get_price_history.return_value = pd.DataFrame()
 
         with patch(
-            "phinan.services.market_data.get_cache_service", return_value=mock_cache
+            "phinan.services.market_data.service.get_cache_service", return_value=mock_cache
         ):
-            with patch("phinan.services.market_data.settings") as mock_settings:
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
                 mock_settings.market_data.provider = "yfinance"
 
                 service = MarketDataService()
