@@ -3,13 +3,11 @@
 Decomposes structured notes into bond and option components to estimate fair value.
 """
 
-from typing import Optional
 import numpy as np
 from scipy.stats import norm
 from datetime import date
 
 from ..models.structured_note import StructuredNote, NoteValuation
-from .market_data import MarketDataService
 
 class StructuredProductService:
     """Service for pricing and analyzing structured products."""
@@ -53,15 +51,6 @@ class StructuredProductService:
         # This is the "risk" the investor is taking.
         # Investor sells a Put to the bank. The bank pays premium via higher coupons.
         
-        # Fetch volatility for underlying
-        vol = 0.20 # Default
-        if note.underlying_tickers:
-            # Get first ticker's IV if available, or historical vol
-            ticker = note.underlying_tickers[0]
-            # Simplification: Use fixed vol or fetch from market_data if possible
-            # In a real engine, we'd fetch specific surface data.
-            pass
-            
         # Analytical approximation for Down-and-In Put (Barrier Put)
         # Black-Scholes barrier formula is complex. 
         # Simplify: Plain Vanilla Put value weighted by Probability of Hitting Barrier.

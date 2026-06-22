@@ -77,7 +77,6 @@ async def run_sync_batch(*operations: tuple) -> list[Any]:
             (services.market_data.get_price_range, "AAPL", "3mo"),
         )
     """
-    tasks = []
     results = [None] * len(operations)
 
     async def _run_and_store(idx: int, func, *args):
@@ -135,6 +134,6 @@ def shutdown_executor():
     _executor.shutdown(wait=False)
 
 
-import atexit
+import atexit  # noqa: E402
 
 atexit.register(shutdown_executor)

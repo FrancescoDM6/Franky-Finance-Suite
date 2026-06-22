@@ -80,9 +80,9 @@ class DailyBriefState(rx.State):
                 for g in portfolio.top_gainers[:2]:
                     movers_lines.append(f"- {g['symbol']}: +{g['change_pct']:.1f}% (gainer)")
             if portfolio.top_losers:
-                for l in portfolio.top_losers[:2]:
-                    if l["change_pct"] < 0:
-                        movers_lines.append(f"- {l['symbol']}: {l['change_pct']:.1f}% (loser)")
+                for loser in portfolio.top_losers[:2]:
+                    if loser["change_pct"] < 0:
+                        movers_lines.append(f"- {loser['symbol']}: {loser['change_pct']:.1f}% (loser)")
             movers_summary = "\n".join(movers_lines) if movers_lines else ""
 
             # Build watchlist summary

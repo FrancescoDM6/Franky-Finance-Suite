@@ -5,7 +5,6 @@ All settings can be overridden via PHINAN_ prefixed environment variables.
 """
 
 from pathlib import Path
-from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -105,7 +104,7 @@ class GeminiSettings(BaseSettings):
         description="Gemini API key from aistudio.google.com",
     )
     model: str = Field(
-        default="gemini-3.0-flash-preview",
+        default="gemini-3.1-flash-lite",
         description="Gemini model to use",
     )
 

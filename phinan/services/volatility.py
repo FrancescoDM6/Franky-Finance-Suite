@@ -5,12 +5,9 @@ assessing if options are cheap/expensive relative to expected vol.
 """
 
 from __future__ import annotations
-from typing import Optional, Union, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING
 
-# Lazy imports for heavy dependencies (numpy, pandas, scipy)
-# These are only loaded when the service is actually used
 if TYPE_CHECKING:
-    import numpy as np
     import pandas as pd
 
 from ..config.settings import settings
@@ -33,9 +30,8 @@ class VolatilityService:
             import sys
             if 'arch' in sys.modules:
                 return True
-            # Try importing arch - but this can be slow on first import
-            import arch
-            return True
+            import importlib.util
+            return importlib.util.find_spec("arch") is not None
         except ImportError:
             return False
         except Exception:

@@ -22,22 +22,21 @@ logger = logging.getLogger(__name__)
 # already as fast as uvloop, so there is no performance benefit to
 # installing uvloop in the parent.
 
-import reflex as rx
+import reflex as rx  # noqa: E402
 
 # Import pages to register them with Reflex
-from .pages import index, settings
-from .modules.research import page as research_page
-from .modules.notes import page as notes_page
-from .modules.options import page as options_page
-from .modules.portfolio import page as portfolio_page
+from .pages import index, settings  # noqa: F401, E402
+from .modules.research import page as research_page  # noqa: F401, E402
+from .modules.notes import page as notes_page  # noqa: F401, E402
+from .modules.options import page as options_page  # noqa: F401, E402
+from .modules.portfolio import page as portfolio_page  # noqa: F401, E402
 
 # Import states to register them
-from .state.app import AppState
-from .state.user_context import UserContextState
-# from .components.assistant.state import AssistantState
+from .state.app import AppState  # noqa: F401, E402
+from .state.user_context import UserContextState  # noqa: F401, E402
 
 # Import API endpoints
-from .api import health_api
+from .api import health_api  # noqa: E402
 
 
 def on_load():

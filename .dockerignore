@@ -16,3 +16,4 @@ tests/
 LOGS/
 # assets/ - MUST be included for styles.css and favicon.ico
 .web/
+*.tar.gz

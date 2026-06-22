@@ -6,7 +6,6 @@ Handles portfolio positions stored in DuckDB.
 import json
 import os
 from datetime import date
-from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel

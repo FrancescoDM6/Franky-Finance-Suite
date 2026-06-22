@@ -44,7 +44,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Phinan Finance Suite is a personal finance application for investment research, options trading, and portfolio management. The core design: a **persistent AI assistant** is the primary interface, with modules (research, notes, options, portfolio) serving as tools and data layers the assistant can invoke.
+Phinan Finance Suite is a personal finance application for investment research, options trading, and portfolio management. The intended design: a **persistent AI assistant** as the primary interface, with modules (research, notes, options, portfolio) serving as tools and data layers the assistant can invoke. NOTE: the assistant is not yet implemented; today the modules are used directly, with LLM synthesis powering research summaries and the daily brief.
 
 ## Tech Stack
 
@@ -74,7 +74,7 @@ python migrations/migration_runner.py
 
 # Deploy to Railway (Production)
 # This uses a custom Caddy+Uvicorn setup. Do NOT use `reflex run` in production.
-# See README.md for details.
+# See README-dev.md for details.
 ```
 
 ## Deployment Architecture (Railway)
@@ -95,29 +95,29 @@ phinan/
 ├── core/
 │   ├── __init__.py
 │   └── database.py        # DuckDB manager with thread-safe connections
-├── services/
-│   ├── __init__.py        # Lazy-loaded service registry
-│   ├── llm.py             # Ollama wrapper
-│   ├── market_data.py     # yfinance adapter
+├── api/
+│   └── health.py         # FastAPI health + metrics endpoints
+├── services/             # Lazy-loaded service registry (see services/__init__.py)
+│   ├── __init__.py        # ServiceRegistry
+│   ├── llm.py             # Gemini (cloud) + Ollama (local) wrapper
+│   ├── market_data.py     # OpenBB + yfinance adapter
 │   ├── sentiment.py       # FinBERT
 │   ├── volatility.py      # GARCH forecasting
-│   └── embeddings.py      # sentence-transformers
+│   ├── embeddings.py      # sentence-transformers
+│   ├── synthesis.py       # LLM synthesis with context-hash caching
+│   └── ...                # cache_service, circuit_breaker, model_cascade, etc.
 ├── state/
 │   ├── __init__.py
 │   ├── app.py             # Global app state
 │   └── user_context.py    # Persistent user preferences
 ├── components/
 │   ├── __init__.py
-│   ├── layout.py          # Main layout with sidebar + assistant
-│   ├── navbar.py          # Top navigation
+│   ├── layout.py          # Main layout wrapper
 │   ├── sidebar.py         # Navigation sidebar
-│   └── assistant/
-│       ├── __init__.py
-│       ├── state.py       # Assistant chat state
-│       └── chat.py        # Chat UI components
+│   └── ui.py              # Reusable UI helpers (content_card, synthesis_card)
 ├── pages/
 │   ├── __init__.py
-│   ├── index.py           # Home dashboard
+│   ├── index.py           # Home dashboard + Daily Brief
 │   └── settings.py        # Settings page
 └── modules/
     ├── research/
@@ -125,11 +125,16 @@ phinan/
     │   ├── page.py        # Research page
     │   ├── state.py       # ResearchState
     │   ├── profiles.py    # User profiles (Papi/Tio/Franky)
+    │   ├── prompts.py     # LLM prompt templates
     │   └── components/    # Quality card, range card, etc.
+    ├── portfolio/         # Portfolio tracking (page + state)
     ├── notes/             # Structured note analyzer (stub)
-    ├── options/           # Options trading (stub)
-    └── portfolio/         # Portfolio view (stub)
+    └── options/           # Options trading (stub)
 ```
+
+NOTE: A persistent chat assistant is the design intent (see Project Overview),
+but it is not yet wired up. There is no `components/assistant/` package; only an
+`AppState.assistant_visible` toggle exists today.
 
 ## Key Design Principles
 
@@ -169,7 +174,7 @@ Heavy data (options chains, price history) should come from services/cache.
 
 Settings via environment variables with `PHINAN_` prefix:
 ```bash
-PHINAN_DATABASE__PATH=~/.phinan/phinan.duckdb
+PHINAN_DATABASE__PATH=./data/phinan.duckdb
 PHINAN_OLLAMA_BASE_URL=http://localhost:11434
 PHINAN_OLLAMA_MODEL=llama3.2:latest
 PHINAN_AI_SERVICES_ENABLE_SENTIMENT=false  # Disable for faster startup
@@ -190,23 +195,32 @@ Three trading profiles with different research emphasis:
 - Full project scaffolding with Reflex
 - Service registry with lazy loading
 - Database manager with DuckDB
-- Market data service (yfinance)
-- LLM service (Ollama + Google Gemini)
-- Main layout with sidebar + assistant panel
+- Market data service (OpenBB primary, yfinance fallback)
+- LLM service (Gemini cloud + Ollama local fallback)
+- Main layout with sidebar
 - Research module with:
-  - Quality/analyst/range cards
+  - Quality/analyst/range/news/options cards
   - Portfolio integration (My Position card, P/L context)
   - Ticker autocomplete
+  - Profile-aware insights and LLM synthesis
 - Portfolio module:
   - Positions tracking with live P/L
   - Integration with Research context
   - CRUD operations
-- Assistant chat interface with tool calling
+- Home dashboard with the LLM Daily Brief
+
+**Implemented but inactive (disabled by default):**
+- Sentiment (FinBERT), volatility (GARCH), embeddings services
+
+**Planned / not yet wired up:**
+- Persistent chat assistant with tool calling (only an `assistant_visible`
+  toggle exists today)
+- Notes module, Options module
 
 **Next Steps:**
-1. **Research Enhancements:** Options chain integration, deeper analyst data, sentiment improvements.
-2. **Home Page:** Phin Daily Brief, removed "Getting Started", improved quick actions.
-3. **Deployment Prep:** Vercel compatibility, production config.
+1. **Assistant:** Wire up the persistent chat interface with tool calling.
+2. **Research Enhancements:** Deeper analyst data, sentiment improvements.
+3. **Deployment:** Production hardening on Railway.
 
 ## Planning Documents
 
