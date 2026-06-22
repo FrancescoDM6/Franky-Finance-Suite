@@ -197,3 +197,13 @@ Plan/
 docs/
 .sisyphus/
 phinan/pages/ui_demo.py
+
+*.duckdb
+*.duckdb.wal
+
+# Reflex build artifacts
+.web/
+build/
+
+# CodeQL CI cache
+.codeql/
