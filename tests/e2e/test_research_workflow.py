@@ -9,10 +9,32 @@ mocking only external API calls while testing the integration of:
 - Caching
 """
 
+import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
+
+
+def create_research_state():
+    """Create a Research state attached to a real in-memory state tree."""
+    from phinan.modules.research.options_state import OptionsState
+    from phinan.modules.research.state import ResearchState
+    from phinan.modules.research.volatility_state import VolatilityState
+    from phinan.state.user_context import UserContextState
+    from reflex.istate.manager.memory import StateManagerMemory
+
+    async def create():
+        manager = StateManagerMemory.create(ResearchState.get_root_state())
+        root = await manager.get_state(f"research-e2e-{uuid4()}")
+        state = root.get_substate(ResearchState.get_full_name().split("."))
+        await state.get_state(OptionsState)
+        await state.get_state(VolatilityState)
+        await state.get_state(UserContextState)
+        return manager, state
+
+    return asyncio.get_event_loop().run_until_complete(create())
 
 
 @pytest.fixture
@@ -149,10 +171,8 @@ class TestResearchWorkflowComplete:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -183,10 +203,8 @@ class TestResearchWorkflowComplete:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "INVALIDTICKER"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -212,10 +230,8 @@ class TestResearchWorkflowComplete:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -242,10 +258,8 @@ class TestResearchWorkflowComplete:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -271,10 +285,8 @@ class TestResearchWorkflowComplete:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -306,10 +318,8 @@ class TestResearchWorkflowEdgeCases:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -340,10 +350,8 @@ class TestResearchWorkflowEdgeCases:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -370,10 +378,8 @@ class TestResearchWorkflowEdgeCases:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL - Apple Inc."
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -402,10 +408,8 @@ class TestResearchWorkflowStateManagement:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():
@@ -415,7 +419,7 @@ class TestResearchWorkflowStateManagement:
 
             assert state.selected_ticker == "AAPL"
 
-            state.clear_research()
+            asyncio.get_event_loop().run_until_complete(state.clear_research())
 
             assert state.ticker_input == ""
             assert state.selected_ticker == ""
@@ -438,10 +442,8 @@ class TestResearchWorkflowStateManagement:
 
             from phinan.modules.research.state import ResearchState
 
-            state = ResearchState()
+            _manager, state = create_research_state()
             state.ticker_input = "AAPL"
-
-            import asyncio
 
             async def run_research():
                 async for _ in state.research_ticker():

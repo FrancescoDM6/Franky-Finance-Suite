@@ -1,6 +1,8 @@
 """Options snapshot card component."""
 
 import reflex as rx
+
+from ..options_state import OptionsState
 from ..state import ResearchState
 
 
@@ -12,12 +14,12 @@ def expiration_selector() -> rx.Component:
         ),
         rx.select.content(
             rx.foreach(
-                ResearchState.options_expirations,
+                OptionsState.options_expirations,
                 lambda exp: rx.select.item(exp, value=exp),
             ),
         ),
-        value=ResearchState.selected_expiration,
-        on_change=ResearchState.set_options_expiration,
+        value=OptionsState.selected_expiration,
+        on_change=OptionsState.set_options_expiration,
         size="2",
     )
 
@@ -28,7 +30,7 @@ def options_metadata_row() -> rx.Component:
         rx.hstack(
             rx.text("ATM IV:", size="1", color_scheme="gray"),
             rx.text(
-                ResearchState.options_atm_iv_pct,
+                OptionsState.options_atm_iv_pct,
                 size="2",
                 weight="bold",
             ),
@@ -39,7 +41,7 @@ def options_metadata_row() -> rx.Component:
         rx.hstack(
             rx.text("Days:", size="1", color_scheme="gray"),
             rx.text(
-                ResearchState.options_days_to_expiry,
+                OptionsState.options_days_to_expiry,
                 size="2",
                 weight="bold",
             ),
@@ -155,7 +157,7 @@ def calls_section() -> rx.Component:
         rx.text("CALLS", size="2", weight="bold", color="var(--green-11)"),
         options_table_header(),
         rx.foreach(
-            ResearchState.options_calls,
+            OptionsState.options_calls,
             option_row,
         ),
         spacing="1",
@@ -169,7 +171,7 @@ def puts_section() -> rx.Component:
         rx.text("PUTS", size="2", weight="bold", color="var(--red-11)"),
         options_table_header(),
         rx.foreach(
-            ResearchState.options_puts,
+            OptionsState.options_puts,
             option_row,
         ),
         spacing="1",
@@ -238,23 +240,23 @@ def options_card() -> rx.Component:
             rx.divider(),
             # Loading state
             rx.cond(
-                ResearchState.options_loading,
+                OptionsState.options_loading,
                 rx.center(
                     rx.spinner(size="2"),
                     padding="4",
                 ),
                 # Error state
                 rx.cond(
-                    ResearchState.options_error != "",
+                    OptionsState.options_error != "",
                     rx.callout(
-                        ResearchState.options_error,
+                        OptionsState.options_error,
                         icon="circle-alert",
                         color_scheme="red",
                         size="1",
                     ),
                     # Data state
                     rx.cond(
-                        ResearchState.has_options_data,
+                        OptionsState.has_options_data,
                         rx.vstack(
                             options_metadata_row(),
                             rx.divider(),
@@ -276,7 +278,7 @@ def options_card() -> rx.Component:
                         ),
                         # No data / no selection state
                         rx.cond(
-                            ResearchState.options_expirations.length() > 0,
+                            OptionsState.options_expirations.length() > 0,
                             rx.center(
                                 rx.text(
                                     "Select an expiration to view options.",
