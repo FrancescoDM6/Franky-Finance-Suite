@@ -3,11 +3,15 @@
 Handles PDF file upload, parsing, and valuation logic.
 """
 
-import reflex as rx
-from typing import Optional, List
+import logging
+from typing import List, Optional
 
-from ...services import services
+import reflex as rx
+
 from ...models.structured_note import StructuredNote, NoteValuation
+from ...services import services
+
+logger = logging.getLogger(__name__)
 
 class NoteState(rx.State):
     """State for the Notes module."""
@@ -77,7 +81,7 @@ class NoteState(rx.State):
             
         except Exception as e:
             self.error_message = f"Error: {str(e)}"
-            print(f"Note upload error: {e}")
+            logger.error("Note upload error: %s", e)
         finally:
             self.is_uploading = False
             

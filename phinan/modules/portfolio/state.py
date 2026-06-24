@@ -4,15 +4,18 @@ Handles portfolio positions stored in DuckDB.
 """
 
 import json
+import logging
 import os
 from datetime import date
 from typing import Optional
 
-from pydantic import BaseModel
 import reflex as rx
+from pydantic import BaseModel
 
 from ...core.async_utils import run_sync
 from ...services import services
+
+logger = logging.getLogger(__name__)
 
 
 class PortfolioPosition(BaseModel):
@@ -81,7 +84,7 @@ class PortfolioState(rx.State):
             with open(data_path, "r") as f:
                 self.tickers = json.load(f)
         except Exception as e:
-            print(f"Error loading tickers for portfolio: {e}")
+            logger.error("Error loading tickers for portfolio: %s", e)
             self.tickers = []
 
     @rx.var
