@@ -16,6 +16,29 @@ from ..core.async_utils import run_sync
 logger = logging.getLogger(__name__)
 
 
+_PERSISTED_FIELDS = {
+    "active_profile": ("str", "active_profile"),
+    "risk_tolerance": ("str", "risk_tolerance"),
+    "typical_strategy": ("str", "typical_strategy"),
+    "typical_timeframe": ("str", "typical_timeframe"),
+    "default_range_period": ("str", "default_range_period"),
+    "dark_mode": ("json_bool", "dark_mode"),
+    "watchlist": ("json_list", "watchlist"),
+    "avoid_list": ("json_list", "avoid_list"),
+}
+
+
+def _deserialize_context_value(value_type: str, value: str):
+    """Deserialize a persisted context value according to its field type."""
+    if value_type == "str":
+        return value
+    if value_type == "json_bool":
+        return bool(json.loads(value))
+    if value_type == "json_list":
+        return json.loads(value)
+    raise ValueError(f"Unsupported user context field type: {value_type}")
+
+
 class UserContextState(rx.State):
     """User context state - persistent across sessions.
 
@@ -83,41 +106,33 @@ class UserContextState(rx.State):
         from ..services import services
 
         try:
+            # Query and field handling both derive from _PERSISTED_FIELDS, so
+            # adding a persisted field is a single dict entry.
+            keys = tuple(_PERSISTED_FIELDS)
+            placeholders = ", ".join("?" for _ in keys)
             result = await run_sync(
                 services.db.query,
-                "SELECT key, value FROM user_context WHERE key IN (?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    "active_profile",
-                    "risk_tolerance",
-                    "typical_strategy",
-                    "typical_timeframe",
-                    "default_range_period",
-                    "dark_mode",
-                    "watchlist",
-                    "avoid_list",
-                ),
+                f"SELECT key, value FROM user_context WHERE key IN ({placeholders})",
+                keys,
             )
 
             for row in result:
                 key = row["key"]
-                value = row["value"]
+                field_config = _PERSISTED_FIELDS.get(key)
+                if field_config is None:
+                    continue
 
-                if key == "active_profile":
-                    self.active_profile = value
-                elif key == "risk_tolerance":
-                    self.risk_tolerance = value
-                elif key == "typical_strategy":
-                    self.typical_strategy = value
-                elif key == "typical_timeframe":
-                    self.typical_timeframe = value
-                elif key == "default_range_period":
-                    self.default_range_period = value
-                elif key == "dark_mode":
-                    self.dark_mode = bool(json.loads(value))
-                elif key == "watchlist":
-                    self.watchlist = json.loads(value)
-                elif key == "avoid_list":
-                    self.avoid_list = json.loads(value)
+                value_type, attribute = field_config
+                # Decode each row independently so one malformed value does not
+                # prevent the remaining preferences from loading.
+                try:
+                    value = _deserialize_context_value(value_type, row["value"])
+                except (ValueError, json.JSONDecodeError) as exc:
+                    logger.warning(
+                        "Skipping malformed user_context value for %s: %s", key, exc
+                    )
+                    continue
+                setattr(self, attribute, value)
 
             self._loaded = True
         except Exception as e:
