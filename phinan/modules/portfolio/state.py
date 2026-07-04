@@ -98,10 +98,12 @@ class PortfolioState(rx.State):
     def set_form_quantity(self, value: str):
         """Set form quantity."""
         self.form_quantity = value
+        self.error_message = ""
 
     def set_form_cost_basis(self, value: str):
         """Set form cost basis."""
         self.form_cost_basis = value
+        self.error_message = ""
 
     def set_form_purchase_date(self, value: str):
         """Set form purchase date."""
@@ -320,6 +322,7 @@ class PortfolioState(rx.State):
             self._clear_form()
             self.show_add_form = False
             await self.load_positions()
+            return rx.toast.success(f"Added {ticker} to portfolio")
 
         except Exception as e:
             self.error_message = f"Error adding position: {str(e)}"
@@ -358,7 +361,10 @@ class PortfolioState(rx.State):
     async def execute_delete(self):
         """Execute the confirmed deletion."""
         if self.delete_confirm_position_id > 0:
+            ticker = self.delete_confirm_ticker
             await self.delete_position(self.delete_confirm_position_id)
+            if not self.error_message:
+                return rx.toast.success(f"Removed {ticker} from portfolio")
 
     def get_position_for_ticker(self, ticker: str) -> Optional[PortfolioPosition]:
         """Get position for a specific ticker (for Research integration)."""

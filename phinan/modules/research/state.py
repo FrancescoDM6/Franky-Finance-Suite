@@ -111,6 +111,7 @@ class ResearchState(
     def set_ticker_input(self, value: str):
         """Update ticker input."""
         self.ticker_input = value.upper()
+        self.error_message = ""
 
     def search_ticker(self, ticker: str):
         """Set pending ticker and redirect to research page.

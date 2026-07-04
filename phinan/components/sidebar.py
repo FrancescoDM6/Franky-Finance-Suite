@@ -66,12 +66,37 @@ def watchlist_section() -> rx.Component:
                                 on_click=lambda: ResearchState.search_ticker(symbol),
                             ),
                             rx.spacer(),
-                            rx.button(
-                                rx.icon("x", size=12),
-                                on_click=lambda: UserContextState.remove_from_watchlist(symbol),
-                                variant="ghost",
-                                size="1",
-                                color_scheme="gray",
+                            rx.alert_dialog.root(
+                                rx.alert_dialog.trigger(
+                                    rx.button(
+                                        rx.icon("x", size=12),
+                                        variant="ghost",
+                                        size="1",
+                                        color_scheme="gray",
+                                    ),
+                                ),
+                                rx.alert_dialog.content(
+                                    rx.alert_dialog.title("Remove from watchlist"),
+                                    rx.alert_dialog.description(
+                                        rx.text("Remove ", symbol, " from your watchlist?"),
+                                    ),
+                                    rx.flex(
+                                        rx.alert_dialog.cancel(
+                                            rx.button("Cancel", variant="soft", color_scheme="gray"),
+                                        ),
+                                        rx.alert_dialog.action(
+                                            rx.button(
+                                                "Remove",
+                                                color_scheme="red",
+                                                on_click=lambda: UserContextState.remove_from_watchlist(symbol),
+                                            ),
+                                        ),
+                                        spacing="3",
+                                        justify="end",
+                                        margin_top="12px",
+                                    ),
+                                    max_width="360px",
+                                ),
                             ),
                             width="100%",
                             padding="4px",

@@ -31,7 +31,12 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
 
         if self.selected_ticker:
             user_ctx = await self.get_state(UserContextState)
+            if self.selected_ticker in user_ctx.watchlist:
+                return rx.toast.info(
+                    f"{self.selected_ticker} is already in your watchlist"
+                )
             user_ctx.add_to_watchlist(self.selected_ticker)
+            return rx.toast.success(f"Added {self.selected_ticker} to watchlist")
 
     async def set_chart_period(self, period: str):
         """Set chart period and refresh chart data."""
@@ -283,6 +288,7 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
         generation = self._search_generation
         try:
             self.is_generating_synthesis = True
+            self.synthesis_error = ""
 
             # Get user profile
             user_ctx = await self.get_state(UserContextState)
@@ -387,6 +393,8 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
         from .profiles import get_insights
 
         try:
+            self.profile_insights_error = ""
+
             # Get user context state to find active profile
             user_ctx = await self.get_state(UserContextState)
             profile = user_ctx.active_profile.lower()
