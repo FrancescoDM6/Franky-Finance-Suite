@@ -1,6 +1,7 @@
 """Price chart component using Reflex recharts."""
 
 import reflex as rx
+from ....components.ui import card_header
 from ..state import ResearchState
 
 
@@ -65,16 +66,13 @@ def chart_card() -> rx.Component:
     """Card wrapper for price chart."""
     return rx.card(
         rx.vstack(
-            rx.hstack(
-                rx.heading("Price History", size="4"),
-                rx.spacer(),
+            card_header(
+                "Price History",
                 rx.badge(
                     ResearchState.chart_period,
                     variant="soft",
                 ),
-                width="100%",
             ),
-            rx.divider(),
             price_chart(),
             spacing="3",
             width="100%",

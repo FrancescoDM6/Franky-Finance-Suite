@@ -78,8 +78,9 @@ class UserContextState(rx.State):
     @rx.var
     def profile_display_name(self) -> str:
         """Display name for current profile."""
-        names = {"conservative": "Conservative", "aggressive": "Aggressive", "standard": "Standard"}
-        return names.get(self.active_profile, "Standard")
+        from ..config.profiles import get_profile
+
+        return get_profile(self.active_profile).name
 
     @rx.var
     def timeframe_display_name(self) -> str:
@@ -158,37 +159,17 @@ class UserContextState(rx.State):
 
     def set_profile(self, profile: str):
         """Switch user profile and apply defaults."""
+        from ..config.profiles import get_profile
+
         profile_key = profile.lower()
         self.active_profile = profile_key
 
-        # Apply profile-specific defaults
-        profile_defaults = {
-            "conservative": {
-                "risk_tolerance": "conservative",
-                "typical_strategy": "entry_exit",
-                "typical_timeframe": "2_weeks",
-                "default_range_period": "3mo",
-            },
-            "aggressive": {
-                "risk_tolerance": "aggressive",
-                "typical_strategy": "directional",
-                "typical_timeframe": "1_2_months",
-                "default_range_period": "6mo",
-            },
-            "standard": {
-                "risk_tolerance": "learning",
-                "typical_strategy": "varies",
-                "typical_timeframe": "varies",
-                "default_range_period": "6mo",
-            },
-        }
-
-        if profile_key in profile_defaults:
-            defaults = profile_defaults[profile_key]
-            self.risk_tolerance = defaults["risk_tolerance"]
-            self.typical_strategy = defaults["typical_strategy"]
-            self.typical_timeframe = defaults["typical_timeframe"]
-            self.default_range_period = defaults["default_range_period"]
+        # Apply profile-specific defaults (single source: config/profiles.py)
+        defaults = get_profile(profile_key)
+        self.risk_tolerance = defaults.risk_tolerance
+        self.typical_strategy = defaults.typical_strategy
+        self.typical_timeframe = defaults.typical_timeframe
+        self.default_range_period = defaults.default_range_period
 
         self._save_context_value("active_profile", self.active_profile)
         self._save_context_value("risk_tolerance", self.risk_tolerance)

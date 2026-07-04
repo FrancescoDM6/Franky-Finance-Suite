@@ -384,7 +384,7 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
     async def _apply_profile_insights(self):
         """Generate profile-specific insights based on active user profile."""
         from ...state.user_context import UserContextState
-        from .profiles import get_conservative_insights, get_aggressive_insights, get_standard_insights
+        from .profiles import get_insights
 
         try:
             # Get user context state to find active profile
@@ -396,19 +396,13 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
                 {"title": n.title, "publisher": n.publisher} for n in self.recent_news
             ]
 
-            if profile == "conservative":
-                self.profile_insights = get_conservative_insights(
-                    self.ticker_info, self.price_range, self.analyst_data
-                )
-            elif profile == "aggressive":
-                self.profile_insights = get_aggressive_insights(
-                    self.ticker_info, self.price_range, news_dicts, self.analyst_data
-                )
-            else:
-                # Standard or default
-                self.profile_insights = get_standard_insights(
-                    self.ticker_info, self.price_range, news_dicts, self.analyst_data
-                )
+            self.profile_insights = get_insights(
+                profile,
+                self.ticker_info,
+                self.price_range,
+                news_dicts,
+                self.analyst_data,
+            )
         except Exception as e:
             logger.error("Error generating profile insights: %s", e)
             self.profile_insights = []

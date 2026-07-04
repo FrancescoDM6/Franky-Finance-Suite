@@ -22,6 +22,29 @@ def data_section(title: str, children, **kwargs) -> rx.Component:
     )
 
 
+def card_header(title: str, *right, icon=None, left=None) -> rx.Component:
+    """Standard card header followed by a divider.
+
+    Layout: [icon] title [left-adjacent content] ... spacer ... [right content]
+    """
+    left_items = []
+    if icon is not None:
+        left_items.append(rx.icon(icon, size=18))
+    left_items.append(rx.heading(title, size="4"))
+    if left is not None:
+        left_items.append(left)
+    return rx.fragment(
+        rx.hstack(
+            rx.hstack(*left_items, spacing="2", align="center"),
+            rx.spacer(),
+            *right,
+            width="100%",
+            align="center",
+        ),
+        rx.divider(),
+    )
+
+
 def content_card(*children, **kwargs) -> rx.Component:
     """Standard card with soft border and breathable padding."""
     return rx.box(

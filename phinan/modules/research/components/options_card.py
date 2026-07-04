@@ -2,6 +2,7 @@
 
 import reflex as rx
 
+from ....components.ui import card_header
 from ..options_state import OptionsState
 from ..state import ResearchState
 
@@ -225,19 +226,11 @@ def options_card() -> rx.Component:
     return rx.card(
         rx.vstack(
             # Header with expiration selector
-            rx.hstack(
-                rx.hstack(
-                    rx.icon("bar-chart-4", size=18),
-                    rx.heading("Options Snapshot", size="4"),
-                    spacing="2",
-                    align="center",
-                ),
-                rx.spacer(),
+            card_header(
+                "Options Snapshot",
                 expiration_selector(),
-                width="100%",
-                align="center",
+                icon="bar-chart-4",
             ),
-            rx.divider(),
             # Loading state
             rx.cond(
                 OptionsState.options_loading,

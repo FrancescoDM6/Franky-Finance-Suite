@@ -1,58 +1,37 @@
-"""User profiles for research emphasis.
+"""Profile-aware research insights.
 
-Different profiles emphasize different aspects of research
-based on trading strategy.
+Profile definitions live in phinan/config/profiles.py (single source of
+truth); they are re-exported here for existing callers.
 """
 
-from dataclasses import dataclass
+from ...config.profiles import PROFILES, UserProfile, get_profile
+
+__all__ = [
+    "PROFILES",
+    "UserProfile",
+    "get_profile",
+    "get_insights",
+    "get_conservative_insights",
+    "get_aggressive_insights",
+    "get_standard_insights",
+]
 
 
-@dataclass
-class UserProfile:
-    """User profile configuration."""
-
-    name: str
-    strategy_type: str  # "conservative", "aggressive", "learning"
-    typical_timeframe: str  # "2_weeks", "1_2_months", "varies"
-    default_range_period: str  # "1mo", "3mo", "6mo", "1y"
-    emphasis: list[str]  # Sections to highlight
-    description: str
-
-
-PROFILES = {
-    "conservative": UserProfile(
-        name="Conservative",
-        strategy_type="conservative",
-        typical_timeframe="2_weeks",
-        default_range_period="3mo",
-        emphasis=["dividend_yield", "cost_basis", "range_high_calls", "quality_check"],
-        description="Options as entry/exit mechanism. Focus on quality stocks, "
-        "dividend yield for margin strategy, covered calls near range high.",
-    ),
-    "aggressive": UserProfile(
-        name="Aggressive",
-        strategy_type="aggressive",
-        typical_timeframe="1_2_months",
-        default_range_period="6mo",
-        emphasis=["momentum", "analyst_deep_dive", "iv_analysis", "news_sentiment"],
-        description="Traditional risk-taking with deeper research. "
-        "Longer timeframes, momentum-focused, uses structured notes for long-term.",
-    ),
-    "standard": UserProfile(
-        name="Standard",
-        strategy_type="learning",
-        typical_timeframe="varies",
-        default_range_period="6mo",
-        emphasis=["all"],  # Show everything for comprehensive understanding
-        description="Balanced mode - show all data for comprehensive understanding. "
-        "Building systematic approach with full visibility into all metrics.",
-    ),
-}
-
-
-def get_profile(name: str) -> UserProfile:
-    """Get a profile by name, defaulting to Standard."""
-    return PROFILES.get(name.lower(), PROFILES["standard"])
+def get_insights(
+    profile_key: str,
+    ticker_info: dict,
+    price_range: dict,
+    recent_news: list,
+    analyst_data: dict,
+) -> list[str]:
+    """Generate insights for the given profile key (defaults to standard)."""
+    if profile_key == "conservative":
+        return get_conservative_insights(ticker_info, price_range, analyst_data)
+    if profile_key == "aggressive":
+        return get_aggressive_insights(
+            ticker_info, price_range, recent_news, analyst_data
+        )
+    return get_standard_insights(ticker_info, price_range, recent_news, analyst_data)
 
 
 def get_conservative_insights(ticker_info: dict, price_range: dict, analyst_data: dict) -> list[str]:
