@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -100,7 +100,25 @@ class OllamaBackend:
         system: Optional[str] = None,
         model: Optional[str] = None,
     ):
-        """Stream an Ollama response token by token."""
+        """Stream an Ollama response token by token.
+
+        Each chunk read is guarded by an inactivity timeout so a stalled
+        stream cannot hang the caller indefinitely. Failures and timeouts
+        feed the shared Ollama circuit breaker, same as chat().
+        """
+        from concurrent.futures import (
+            ThreadPoolExecutor,
+            TimeoutError as FuturesTimeoutError,
+        )
+
+        breaker = get_circuit_breaker("ollama")
+        if not breaker.allow_request():
+            yield (
+                "Local LLM temporarily unavailable (circuit open). "
+                "Please try again later."
+            )
+            return
+
         client = self._get_client()
         selected_model = model or self._model
         full_messages = []
@@ -108,15 +126,36 @@ class OllamaBackend:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
 
+        sentinel = object()
+        # One reused worker thread for the whole stream; shut down with
+        # wait=False so a hung next() cannot block the generator's exit.
+        executor = ThreadPoolExecutor(max_workers=1)
         try:
             response = client.chat(
                 model=selected_model,
                 messages=full_messages,
                 stream=True,
             )
-            for chunk in response:
+            iterator = iter(response)
+            while True:
+                future = executor.submit(next, iterator, sentinel)
+                try:
+                    chunk = future.result(timeout=DEFAULT_LLM_TIMEOUT)
+                except FuturesTimeoutError:
+                    breaker.record_failure()
+                    yield (
+                        f"\n[Ollama stream stalled: no data for "
+                        f"{DEFAULT_LLM_TIMEOUT:.0f}s]"
+                    )
+                    return
+                if chunk is sentinel:
+                    break
                 if "message" in chunk and "content" in chunk["message"]:
                     yield chunk["message"]["content"]
+            breaker.record_success()
         except Exception as e:
+            breaker.record_failure()
             yield f"Error: {str(e)}"
+        finally:
+            executor.shutdown(wait=False)
 

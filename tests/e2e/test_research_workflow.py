@@ -169,7 +169,6 @@ class TestResearchWorkflowComplete:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"
@@ -201,7 +200,6 @@ class TestResearchWorkflowComplete:
             mock_services.sentiment = mock_sentiment_service
             mock_services.synthesis = mock_synthesis_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "INVALIDTICKER"
@@ -228,7 +226,6 @@ class TestResearchWorkflowComplete:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"
@@ -256,7 +253,6 @@ class TestResearchWorkflowComplete:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"
@@ -283,7 +279,6 @@ class TestResearchWorkflowComplete:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"
@@ -316,7 +311,6 @@ class TestResearchWorkflowEdgeCases:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"
@@ -348,7 +342,6 @@ class TestResearchWorkflowEdgeCases:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"
@@ -376,7 +369,6 @@ class TestResearchWorkflowEdgeCases:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL - Apple Inc."
@@ -406,7 +398,6 @@ class TestResearchWorkflowStateManagement:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"
@@ -440,7 +431,6 @@ class TestResearchWorkflowStateManagement:
             mock_services.synthesis = mock_synthesis_service
             mock_services.volatility = mock_volatility_service
 
-            from phinan.modules.research.state import ResearchState
 
             _manager, state = create_research_state()
             state.ticker_input = "AAPL"

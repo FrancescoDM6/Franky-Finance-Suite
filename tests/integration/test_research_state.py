@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -196,8 +195,6 @@ class TestResearchStateAsyncWorkflow:
             state.ticker_input = "INVALIDTICKER123"
 
             gen = state.research_ticker()
-
-            results = []
 
             async def exhaust_gen():
                 async for _ in gen:

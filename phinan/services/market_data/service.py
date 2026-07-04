@@ -48,6 +48,24 @@ class MarketDataService:
         self._options_provider: OptionsProvider = yfinance
         self._analyst_provider: AnalystProvider = yfinance
 
+    def _fetch_with_retry(self, fetch, operation: str, symbol: str):
+        """Call a provider fetch, retrying transient failures.
+
+        Providers swallow exceptions and signal failure with a falsy result
+        (None / empty), so a falsy return is the only retry signal available
+        here. Rate-limited yfinance calls (HTTP 429) surface the same way as
+        an unknown ticker.
+
+        TODO(Franky): implement the retry policy. Decide: number of attempts,
+        backoff shape (fixed vs exponential, jitter?), and whether some
+        operations should not retry at all because a falsy result usually
+        means "no such data" rather than a transient failure. Trade-off:
+        aggressive retries make the daily brief more complete during busy
+        market hours, but can make yfinance rate limiting worse.
+        Currently: single attempt, no retry.
+        """
+        return fetch()
+
     def health_check(self) -> bool:
         """Check if market data service is available."""
         import importlib.util
@@ -70,11 +88,20 @@ class MarketDataService:
         record_cache_miss("ticker_info")
         start = time.perf_counter()
 
-        result = self._primary.get_ticker_info(symbol)
+        result = self._fetch_with_retry(
+            lambda: self._primary.get_ticker_info(symbol), "ticker_info", symbol
+        )
 
         if result is None and self._fallback:
             logger.warning("Primary provider failed for %s, trying fallback", symbol)
-            result = self._fallback.get_ticker_info(symbol)
+            result = self._fetch_with_retry(
+                lambda: self._fallback.get_ticker_info(symbol), "ticker_info", symbol
+            )
+
+        if result is None:
+            logger.error(
+                "All market data providers failed for ticker_info %s", symbol
+            )
 
         duration = time.perf_counter() - start
         metrics.market_data_duration.labels(
@@ -112,6 +139,11 @@ class MarketDataService:
                 symbol,
             )
             result = self._fallback.get_price_history(symbol, period, interval)
+
+        if result.empty:
+            logger.error(
+                "All market data providers failed for price history %s", symbol
+            )
 
         return result
 
@@ -172,13 +204,20 @@ class MarketDataService:
         from ...core.metrics import metrics
 
         start = time.perf_counter()
-        result = self._primary.get_news(symbol, max_items)
+        result = self._fetch_with_retry(
+            lambda: self._primary.get_news(symbol, max_items), "news", symbol
+        )
 
         if not result and self._fallback:
             logger.warning(
                 "Primary provider failed for news %s, trying fallback", symbol
             )
-            result = self._fallback.get_news(symbol, max_items)
+            result = self._fetch_with_retry(
+                lambda: self._fallback.get_news(symbol, max_items), "news", symbol
+            )
+
+        if not result:
+            logger.error("All market data providers failed for news %s", symbol)
 
         duration = time.perf_counter() - start
         metrics.market_data_duration.labels(

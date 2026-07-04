@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 import pytest
 
 from phinan.services.circuit_breaker import (
     CircuitBreaker,
-    CircuitState,
     get_circuit_breaker,
     with_timeout,
 )

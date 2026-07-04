@@ -144,9 +144,12 @@ def check_gemini() -> ServiceStatus:
 
         from google import genai
 
+        from ..services.circuit_breaker import with_timeout
+
         client = genai.Client(api_key=settings.gemini.api_key)
-        # Quick validation - list models (lightweight call)
-        models = list(client.models.list())
+        # Quick validation - list models (lightweight call). Bounded so a
+        # slow Gemini API cannot hang the readiness probe.
+        models = with_timeout(lambda: list(client.models.list()), 5.0)
 
         return _service_status(
             "gemini",
@@ -160,6 +163,14 @@ def check_gemini() -> ServiceStatus:
     except ImportError:
         return _service_status(
             "gemini", "unhealthy", error="google-genai package not installed"
+        )
+    except TimeoutError:
+        return _service_status(
+            "gemini",
+            "degraded",
+            started_at=start,
+            details={"reason": "API slow to respond"},
+            error="Model list timed out after 5s",
         )
     except Exception as exc:
         error_msg = str(exc)[:100]

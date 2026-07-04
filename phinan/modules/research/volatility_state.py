@@ -140,7 +140,7 @@ class VolatilityState(ResearchState):
                 return
 
             # Fetch 1 year of price history for GARCH accuracy
-            df = services.market_data.get_price_history(
+            df = await services.market_data.get_price_history_async(
                 self.selected_ticker, period="1y", interval="1d"
             )
 
@@ -167,8 +167,12 @@ class VolatilityState(ResearchState):
             # Get horizon from state (string to int)
             horizon = int(self.volatility_horizon)
 
-            # Run volatility comparison
-            result = services.volatility.compare_to_implied_vol(
+            # Run volatility comparison (GARCH fit is CPU-heavy; keep it off
+            # the event loop)
+            from ...core.async_utils import run_sync
+
+            result = await run_sync(
+                services.volatility.compare_to_implied_vol,
                 current_price=current_price,
                 returns=returns,
                 implied_vol=options_atm_iv,

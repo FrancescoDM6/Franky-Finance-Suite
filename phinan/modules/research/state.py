@@ -60,6 +60,10 @@ class ResearchState(
     loading_stage: str = ""
     error_message: str = ""
 
+    # Backend-only: incremented on each research run so an in-flight run can
+    # detect it was superseded by a newer search and stop writing state.
+    _search_generation: int = 0
+
     # Results (dicts for Reflex serialization)
     ticker_info: dict[str, Any] = {}
     quality_check: dict[str, Any] = {}

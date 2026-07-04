@@ -91,6 +91,14 @@ class SynthesisService:
             "sentiment": context.news_sentiment,
             "news_context": context.news_context,
             "options_exp": context.options_expiration,
+            # TODO(Franky): intraday staleness - analysis_date is a date
+            # string and price is rounded to $1, so a same-day price move
+            # can re-serve the morning's synthesis for up to CACHE_TTL_HOURS.
+            # Pick an invalidation granularity here: add a time bucket (e.g.
+            # the current hour), widen price to a percentage band (e.g.
+            # round to the nearest 1-2% of price), or combine both.
+            # Trade-off: finer granularity = fresher synthesis, more LLM
+            # calls (cost); coarser = cheaper, staler.
             "analysis_date": context.analysis_date,
             # Round price to nearest dollar to avoid noise from minor fluctuations
             "price": round(context.ticker_info.get("current_price", 0) or 0),

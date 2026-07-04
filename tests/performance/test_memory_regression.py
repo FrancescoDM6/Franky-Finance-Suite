@@ -5,7 +5,6 @@ Run with: pytest tests/performance/test_memory_regression.py -v -m performance
 
 import gc
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 

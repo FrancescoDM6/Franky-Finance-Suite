@@ -7,8 +7,6 @@ import pytest
 from phinan.services.market_data import (
     MarketDataService,
     TickerInfo,
-    PriceRange,
-    NewsItem,
     YFinanceProvider,
 )
 

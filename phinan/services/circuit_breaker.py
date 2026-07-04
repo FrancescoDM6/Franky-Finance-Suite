@@ -133,12 +133,18 @@ def with_timeout(func: Callable, timeout_seconds: float, *args, **kwargs) -> Any
     Raises:
         TimeoutError: If function doesn't complete in time
     """
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
         future = executor.submit(func, *args, **kwargs)
         try:
             return future.result(timeout=timeout_seconds)
         except FuturesTimeoutError:
             raise TimeoutError(f"Operation timed out after {timeout_seconds}s")
+    finally:
+        # wait=False: a hung call must not block this function from
+        # returning after the timeout. The abandoned worker thread exits
+        # on its own whenever the call eventually completes.
+        executor.shutdown(wait=False)
 
 
 @dataclass

@@ -52,7 +52,9 @@ class TestVolatilityState:
 
         with patch("phinan.services.services") as services:
             services.volatility.health_check.return_value = True
-            services.market_data.get_price_history.return_value = history
+            services.market_data.get_price_history_async = AsyncMock(
+                return_value=history
+            )
             services.volatility.compare_to_implied_vol.return_value = result
 
             async def run_test():
