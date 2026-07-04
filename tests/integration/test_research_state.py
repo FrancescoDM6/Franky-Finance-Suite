@@ -419,346 +419,45 @@ class TestResearchStateAggregateSentiment:
 
 
 @pytest.mark.integration
-class TestResearchStateOptionsExpiration:
-    def test_get_default_expiration_papi_profile(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-            from datetime import datetime, timedelta
-
-            state = ResearchState()
-
-            today = datetime.now().date()
-            exp_7d = (today + timedelta(days=7)).strftime("%Y-%m-%d")
-            exp_14d = (today + timedelta(days=14)).strftime("%Y-%m-%d")
-            exp_30d = (today + timedelta(days=30)).strftime("%Y-%m-%d")
-            exp_45d = (today + timedelta(days=45)).strftime("%Y-%m-%d")
-
-            expirations = [exp_7d, exp_14d, exp_30d, exp_45d]
-
-            result = state._get_default_expiration_for_profile(expirations, "2_weeks")
-
-            assert result in [exp_7d, exp_14d]
-
-    def test_get_default_expiration_tio_profile(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-            from datetime import datetime, timedelta
-
-            state = ResearchState()
-
-            today = datetime.now().date()
-            exp_14d = (today + timedelta(days=14)).strftime("%Y-%m-%d")
-            exp_30d = (today + timedelta(days=30)).strftime("%Y-%m-%d")
-            exp_45d = (today + timedelta(days=45)).strftime("%Y-%m-%d")
-            exp_90d = (today + timedelta(days=90)).strftime("%Y-%m-%d")
-
-            expirations = [exp_14d, exp_30d, exp_45d, exp_90d]
-
-            result = state._get_default_expiration_for_profile(
-                expirations, "1_2_months"
-            )
-
-            assert result in [exp_30d, exp_45d]
-
-    def test_get_default_expiration_franky_profile(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-
-            state = ResearchState()
-
-            expirations = ["2025-02-21", "2025-03-21", "2025-04-18"]
-
-            result = state._get_default_expiration_for_profile(expirations, "varies")
-
-            assert result == "2025-02-21"
-
-    def test_get_default_expiration_fallback_to_first(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-            from datetime import datetime, timedelta
-
-            state = ResearchState()
-
-            today = datetime.now().date()
-            exp_90d = (today + timedelta(days=90)).strftime("%Y-%m-%d")
-            exp_120d = (today + timedelta(days=120)).strftime("%Y-%m-%d")
-
-            expirations = [exp_90d, exp_120d]
-
-            result = state._get_default_expiration_for_profile(expirations, "2_weeks")
-
-            assert result == exp_90d
-
-    def test_get_default_expiration_empty_list(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-
-            state = ResearchState()
-
-            result = state._get_default_expiration_for_profile([], "2_weeks")
-
-            assert result == ""
-
-
-@pytest.mark.integration
-class TestResearchStateInterestingStrikes:
-    def test_get_interesting_strikes_includes_atm(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-
-            state = ResearchState()
-
-            strikes = [160.0, 165.0, 170.0, 175.0, 180.0, 185.0, 190.0]
-            current_price = 175.50
-
-            result = state._get_interesting_strikes(
-                strikes, current_price, 190.0, 160.0, 200.0
-            )
-
-            atm_strikes = [s for s in result if s.get("is_atm")]
-            assert len(atm_strikes) == 1
-            assert atm_strikes[0]["annotation"] == "ATM"
-
-    def test_get_interesting_strikes_includes_range_high(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-
-            state = ResearchState()
-
-            strikes = [160.0, 165.0, 170.0, 175.0, 180.0, 185.0, 189.0, 190.0]
-            current_price = 175.50
-            range_high = 190.0
-
-            result = state._get_interesting_strikes(
-                strikes, current_price, range_high, 160.0, 200.0
-            )
-
-            range_high_strikes = [
-                s for s in result if s.get("annotation") == "Range High"
-            ]
-            assert len(range_high_strikes) >= 1
-
-    def test_get_interesting_strikes_respects_bounds(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-
-            state = ResearchState()
-
-            strikes = [100.0, 150.0, 170.0, 175.0, 180.0, 200.0, 250.0]
-            current_price = 175.0
-
-            result = state._get_interesting_strikes(
-                strikes, current_price, 200.0, 150.0, 210.0
-            )
-
-            result_strikes = [s["strike"] for s in result]
-            lower_bound = current_price * 0.90
-            upper_bound = current_price * 1.10
-
-            for strike in result_strikes:
-                assert lower_bound <= strike <= upper_bound
-
-    def test_get_interesting_strikes_empty_on_no_current_price(self, mock_db):
-        with patch("phinan.services.services") as mock_services:
-            mock_services.db = mock_db
-
-            from phinan.modules.research.state import ResearchState
-
-            state = ResearchState()
-
-            strikes = [170.0, 175.0, 180.0]
-
-            result = state._get_interesting_strikes(strikes, 0, 190.0, 160.0, 200.0)
-
-            assert result == []
-
-
-@pytest.mark.integration
 class TestResearchStateClearResearch:
-    def test_clear_research_resets_all_fields(self, mock_db):
+    def test_clear_research_resets_all_state_owners(self, mock_db):
         with patch("phinan.services.services") as mock_services:
             mock_services.db = mock_db
 
-            from phinan.modules.research.state import ResearchState, NewsItem
+            from phinan.modules.research.options_state import OptionsState
+            from phinan.modules.research.state import NewsItem, ResearchState
+            from phinan.modules.research.volatility_state import VolatilityState
+            from reflex.istate.manager.memory import StateManagerMemory
 
-            state = ResearchState()
-            state.ticker_input = "AAPL"
-            state.selected_ticker = "AAPL"
-            state.ticker_info = {"symbol": "AAPL"}
-            state.quality_check = {"overall": "Pass"}
-            state.recent_news = [NewsItem(title="Test")]
-            state.options_calls = [{"strike": 175.0}]
-            state.volatility_garch_vol = 0.25
+            async def run_clear():
+                manager = StateManagerMemory.create(ResearchState.get_root_state())
+                root = await manager.get_state("clear-test")
+                state = root.get_substate(ResearchState.get_full_name().split("."))
+                options_state = await state.get_state(OptionsState)
+                volatility_state = await state.get_state(VolatilityState)
 
-            state.clear_research()
+                state.ticker_input = "AAPL"
+                state.selected_ticker = "AAPL"
+                state.ticker_info = {"symbol": "AAPL"}
+                state.quality_check = {"overall": "Pass"}
+                state.recent_news = [NewsItem(title="Test")]
+                options_state.options_calls = [{"strike": 175.0}]
+                volatility_state.volatility_garch_vol = 0.25
+
+                await state.clear_research()
+                return state, options_state, volatility_state
+
+            state, options_state, volatility_state = (
+                asyncio.get_event_loop().run_until_complete(run_clear())
+            )
 
             assert state.ticker_input == ""
             assert state.selected_ticker == ""
             assert state.ticker_info == {}
             assert state.quality_check == {}
             assert state.recent_news == []
-            assert state.options_calls == []
-            assert state.volatility_garch_vol == 0.0
-
-
-@pytest.mark.integration
-class TestResearchStateLRUCache:
-    def test_lru_cache_get_set(self):
-        from phinan.modules.research.state import LRUCache
-
-        cache = LRUCache(max_size=3, ttl=300)
-
-        cache.set("key1", {"data": "value1"})
-
-        result = cache.get("key1")
-
-        assert result == {"data": "value1"}
-
-    def test_lru_cache_evicts_oldest(self):
-        from phinan.modules.research.state import LRUCache
-
-        cache = LRUCache(max_size=2, ttl=300)
-
-        cache.set("key1", {"data": "value1"})
-        cache.set("key2", {"data": "value2"})
-        cache.set("key3", {"data": "value3"})
-
-        assert cache.get("key1") is None
-        assert cache.get("key2") == {"data": "value2"}
-        assert cache.get("key3") == {"data": "value3"}
-
-    def test_lru_cache_access_moves_to_end(self):
-        from phinan.modules.research.state import LRUCache
-
-        cache = LRUCache(max_size=2, ttl=300)
-
-        cache.set("key1", {"data": "value1"})
-        cache.set("key2", {"data": "value2"})
-
-        cache.get("key1")
-
-        cache.set("key3", {"data": "value3"})
-
-        assert cache.get("key1") == {"data": "value1"}
-        assert cache.get("key2") is None
-        assert cache.get("key3") == {"data": "value3"}
-
-    def test_lru_cache_clear(self):
-        from phinan.modules.research.state import LRUCache
-
-        cache = LRUCache(max_size=3, ttl=300)
-        cache.set("key1", {"data": "value1"})
-        cache.set("key2", {"data": "value2"})
-
-        cache.clear()
-
-        assert cache.size() == 0
-        assert cache.get("key1") is None
-
-
-@pytest.mark.integration
-class TestResearchStateTickerIndex:
-    def test_ticker_index_exact_match(self):
-        from phinan.modules.research.state import TickerIndex
-
-        index = TickerIndex()
-        index.build(
-            [
-                {"symbol": "AAPL", "name": "Apple Inc."},
-                {"symbol": "AMZN", "name": "Amazon.com Inc."},
-                {"symbol": "GOOGL", "name": "Alphabet Inc."},
-            ]
-        )
-
-        results = index.search("AAPL", limit=10)
-
-        assert len(results) >= 1
-        assert results[0] == "AAPL - Apple Inc."
-
-    def test_ticker_index_prefix_match(self):
-        from phinan.modules.research.state import TickerIndex
-
-        index = TickerIndex()
-        index.build(
-            [
-                {"symbol": "AAPL", "name": "Apple Inc."},
-                {"symbol": "AMZN", "name": "Amazon.com Inc."},
-                {"symbol": "AMD", "name": "Advanced Micro Devices"},
-            ]
-        )
-
-        results = index.search("A", limit=10)
-
-        assert len(results) == 3
-        symbols = [r.split(" - ")[0] for r in results]
-        assert "AAPL" in symbols
-        assert "AMZN" in symbols
-        assert "AMD" in symbols
-
-    def test_ticker_index_name_word_match(self):
-        from phinan.modules.research.state import TickerIndex
-
-        index = TickerIndex()
-        index.build(
-            [
-                {"symbol": "AAPL", "name": "Apple Inc."},
-                {"symbol": "MSFT", "name": "Microsoft Corporation"},
-            ]
-        )
-
-        results = index.search("MICRO", limit=10)
-
-        assert len(results) >= 1
-        assert any("MSFT" in r for r in results)
-
-    def test_ticker_index_empty_query(self):
-        from phinan.modules.research.state import TickerIndex
-
-        index = TickerIndex()
-        index.build(
-            [
-                {"symbol": "AAPL", "name": "Apple Inc."},
-            ]
-        )
-
-        results = index.search("", limit=10)
-
-        assert results == []
-
-    def test_ticker_index_not_initialized(self):
-        from phinan.modules.research.state import TickerIndex
-
-        index = TickerIndex()
-
-        results = index.search("AAPL", limit=10)
-
-        assert results == []
-
-    def test_ticker_index_respects_limit(self):
-        from phinan.modules.research.state import TickerIndex
-
-        index = TickerIndex()
-        index.build([{"symbol": f"A{i}", "name": f"Company {i}"} for i in range(20)])
-
-        results = index.search("A", limit=5)
-
-        assert len(results) == 5
+            assert options_state.options_calls == []
+            assert volatility_state.volatility_garch_vol == 0.0
 
 
 @pytest.mark.integration

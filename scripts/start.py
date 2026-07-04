@@ -6,11 +6,15 @@ This ensures migrations run as an explicit deployment step,
 not implicitly during request handling.
 """
 
+import gc
+import logging
 import os
 import subprocess
 import sys
 import time
-import gc
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Add the app directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,9 +26,9 @@ def log_memory_usage(label: str):
         import resource
         usage = resource.getrusage(resource.RUSAGE_SELF)
         rss_mb = usage.ru_maxrss / 1024  # Convert to MB (Linux returns KB)
-        print(f"[MEMORY] {label}: {rss_mb:.1f} MB RSS")
+        logger.info("[MEMORY] %s: %.1f MB RSS", label, rss_mb)
     except Exception as e:
-        print(f"[MEMORY] {label}: Unable to read ({e})")
+        logger.info("[MEMORY] %s: Unable to read (%s)", label, e)
 
 
 def wait_for_private_network():
@@ -33,9 +37,9 @@ def wait_for_private_network():
     Railway's private network DNS resolver takes ~3 seconds to start.
     This is required for Redis and other internal service connections.
     """
-    print("Waiting for Railway private network DNS to initialize...")
+    logger.info("Waiting for Railway private network DNS to initialize...")
     time.sleep(3)
-    print("Private network should be ready.")
+    logger.info("Private network should be ready.")
 
 
 def test_redis_connection():
@@ -46,17 +50,17 @@ def test_redis_connection():
             import redis
             r = redis.from_url(redis_url)
             r.ping()
-            print(f"Redis connected successfully at {redis_url[:30]}...")
+            logger.info("Redis connected successfully at %s...", redis_url[:30])
         except Exception as e:
-            print(f"Redis connection test failed: {e}")
-            print("Continuing anyway - Reflex will retry...")
+            logger.warning("Redis connection test failed: %s", e)
+            logger.info("Continuing anyway - Reflex will retry...")
     else:
-        print("REDIS_URL not set - using disk state manager")
+        logger.info("REDIS_URL not set - using disk state manager")
 
 
 def run_migrations():
     """Run database migrations."""
-    print("Running database migrations...")
+    logger.info("Running database migrations...")
     db = None
     try:
         from phinan.core.database import get_database_manager
@@ -67,9 +71,9 @@ def run_migrations():
         # backend is spawned as a child process below and re-opens the same
         # database, so we must release this process's lock first.
         db.close()
-        print("Migrations completed successfully.")
+        logger.info("Migrations completed successfully.")
     except Exception as e:
-        print(f"Migration failed: {e}")
+        logger.error("Migration failed: %s", e)
         sys.exit(1)
     finally:
         if db is not None:
@@ -85,13 +89,13 @@ def start_reflex():
     """
     # Debug: show what PORT Railway set
     port = os.environ.get("PORT", "NOT SET")
-    print(f"DEBUG: Railway PORT={port}")
-    print(f"DEBUG: Caddy should be listening on port {port}")
-    print("DEBUG: Backend will run on port 8000")
+    logger.info("DEBUG: Railway PORT=%s", port)
+    logger.info("DEBUG: Caddy should be listening on port %s", port)
+    logger.info("DEBUG: Backend will run on port 8000")
 
     # Backend always runs on 8000, Caddy proxies from PORT
-    print("Starting Reflex backend on port 8000...")
-    print("DEBUG: Checking /srv contents:")
+    logger.info("Starting Reflex backend on port 8000...")
+    logger.info("DEBUG: Checking /srv contents:")
     subprocess.run(["ls", "-la", "/srv"], check=False)
 
     # Set environment for production
@@ -102,17 +106,22 @@ def start_reflex():
     # Force backend port
     env["REFLEX_BACKEND_PORT"] = "8000"
 
-    print("DEBUG: Environment:", {
-        k: v for k, v in env.items()
-        if k in [
-            "REFLEX_ENV",
-            "PORT",
-            "API_URL",
-            "REDIS_URL",
-            "REFLEX_BACKEND_PORT",
-            "GRANIAN_WORKERS",
-        ]
-    })
+    logger.info(
+        "DEBUG: Environment: %s",
+        {
+            k: v
+            for k, v in env.items()
+            if k
+            in [
+                "REFLEX_ENV",
+                "PORT",
+                "API_URL",
+                "REDIS_URL",
+                "REFLEX_BACKEND_PORT",
+                "GRANIAN_WORKERS",
+            ]
+        },
+    )
 
     # Use reflex run --backend-only instead of direct uvicorn
     # This properly initializes the Reflex runtime and creates the ASGI app
@@ -124,7 +133,7 @@ def start_reflex():
         "--backend-host", "0.0.0.0",
     ]
 
-    print(f"DEBUG: Executing command: {' '.join(cmd)}")
+    logger.info("DEBUG: Executing command: %s", " ".join(cmd))
 
     subprocess.run(cmd, check=True, env=env)
 

@@ -1,4 +1,4 @@
-"""LLM prompt templates for home page features."""
+"""LLM prompt templates for dashboard features."""
 
 
 DAILY_BRIEF_PROMPT = """Generate a brief morning summary for {profile_name}.
@@ -49,7 +49,6 @@ Keep the tone conversational but professional. Be concise - this should take 30 
 """
 
 
-# Profile-specific section titles
 PROFILE_SECTIONS = {
     "conservative": "Income Opportunities",
     "aggressive": "Trading Opportunities",

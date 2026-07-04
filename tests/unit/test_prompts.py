@@ -1,7 +1,7 @@
 import pytest
 
 from phinan.modules.research.prompts import build_analysis_prompt
-from phinan.pages.prompts import build_daily_brief_prompt
+from phinan.modules.dashboard.prompts import build_daily_brief_prompt
 
 
 @pytest.mark.unit

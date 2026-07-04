@@ -8,11 +8,14 @@ Provides comprehensive health status for all services:
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+
+HEALTH_CHECK_TICKER = "AAPL"
 
 
 class ServiceStatus(BaseModel):
@@ -35,6 +38,30 @@ class HealthResponse(BaseModel):
     summary: dict[str, int]
 
 
+def _elapsed_ms(started_at: float) -> float:
+    """Return elapsed milliseconds rounded for the public response."""
+    return round((time.perf_counter() - started_at) * 1000, 2)
+
+
+def _service_status(
+    name: str,
+    status: str,
+    *,
+    started_at: float | None = None,
+    details: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> ServiceStatus:
+    """Construct a service status with optional elapsed timing."""
+    response_time_ms = _elapsed_ms(started_at) if started_at is not None else None
+    return ServiceStatus(
+        name=name,
+        status=status,
+        response_time_ms=response_time_ms,
+        details=details,
+        error=error,
+    )
+
+
 def check_database() -> ServiceStatus:
     """Check DuckDB database connectivity."""
     start = time.perf_counter()
@@ -42,34 +69,27 @@ def check_database() -> ServiceStatus:
         from ..services import services
 
         healthy = services.db.health_check()
-        elapsed = (time.perf_counter() - start) * 1000
-
         if healthy:
             # Get additional info
             schema_version = services.db.get_schema_version()
-            return ServiceStatus(
-                name="database",
-                status="healthy",
-                response_time_ms=round(elapsed, 2),
+            return _service_status(
+                "database",
+                "healthy",
+                started_at=start,
                 details={
                     "type": "DuckDB",
                     "schema_version": schema_version,
                 },
             )
-        else:
-            return ServiceStatus(
-                name="database",
-                status="unhealthy",
-                response_time_ms=round(elapsed, 2),
-                error="Database connection failed",
-            )
-    except Exception as e:
-        elapsed = (time.perf_counter() - start) * 1000
-        return ServiceStatus(
-            name="database",
-            status="unhealthy",
-            response_time_ms=round(elapsed, 2),
-            error=str(e),
+        return _service_status(
+            "database",
+            "unhealthy",
+            started_at=start,
+            error="Database connection failed",
+        )
+    except Exception as exc:
+        return _service_status(
+            "database", "unhealthy", started_at=start, error=str(exc)
         )
 
 
@@ -82,16 +102,14 @@ def check_ollama() -> ServiceStatus:
 
         client = ollama.Client(host=settings.ollama.base_url)
         models = client.list()
-        elapsed = (time.perf_counter() - start) * 1000
-
         model_names = [
             m.get("name", m.get("model", "unknown")) for m in models.get("models", [])
         ]
 
-        return ServiceStatus(
-            name="ollama",
-            status="healthy",
-            response_time_ms=round(elapsed, 2),
+        return _service_status(
+            "ollama",
+            "healthy",
+            started_at=start,
             details={
                 "base_url": settings.ollama.base_url,
                 "default_model": settings.ollama.model,
@@ -99,18 +117,15 @@ def check_ollama() -> ServiceStatus:
             },
         )
     except ImportError:
-        return ServiceStatus(
-            name="ollama",
-            status="unhealthy",
-            error="ollama package not installed",
+        return _service_status(
+            "ollama", "unhealthy", error="ollama package not installed"
         )
-    except Exception as e:
-        elapsed = (time.perf_counter() - start) * 1000
-        return ServiceStatus(
-            name="ollama",
-            status="unhealthy",
-            response_time_ms=round(elapsed, 2),
-            error=f"Connection failed: {str(e)[:100]}",
+    except Exception as exc:
+        return _service_status(
+            "ollama",
+            "unhealthy",
+            started_at=start,
+            error=f"Connection failed: {str(exc)[:100]}",
         )
 
 
@@ -121,9 +136,9 @@ def check_gemini() -> ServiceStatus:
         from ..config.settings import settings
 
         if not settings.gemini.api_key:
-            return ServiceStatus(
-                name="gemini",
-                status="disabled",
+            return _service_status(
+                "gemini",
+                "disabled",
                 details={"reason": "No API key configured"},
             )
 
@@ -132,41 +147,37 @@ def check_gemini() -> ServiceStatus:
         client = genai.Client(api_key=settings.gemini.api_key)
         # Quick validation - list models (lightweight call)
         models = list(client.models.list())
-        elapsed = (time.perf_counter() - start) * 1000
 
-        return ServiceStatus(
-            name="gemini",
-            status="healthy",
-            response_time_ms=round(elapsed, 2),
+        return _service_status(
+            "gemini",
+            "healthy",
+            started_at=start,
             details={
                 "configured_model": settings.gemini.model,
                 "available_models": len(models),
             },
         )
     except ImportError:
-        return ServiceStatus(
-            name="gemini",
-            status="unhealthy",
-            error="google-genai package not installed",
+        return _service_status(
+            "gemini", "unhealthy", error="google-genai package not installed"
         )
-    except Exception as e:
-        elapsed = (time.perf_counter() - start) * 1000
-        error_msg = str(e)[:100]
+    except Exception as exc:
+        error_msg = str(exc)[:100]
 
         # Check for rate limit
         if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-            return ServiceStatus(
-                name="gemini",
-                status="degraded",
-                response_time_ms=round(elapsed, 2),
+            return _service_status(
+                "gemini",
+                "degraded",
+                started_at=start,
                 details={"reason": "Rate limited"},
                 error="API rate limit reached",
             )
 
-        return ServiceStatus(
-            name="gemini",
-            status="unhealthy",
-            response_time_ms=round(elapsed, 2),
+        return _service_status(
+            "gemini",
+            "unhealthy",
+            started_at=start,
             error=error_msg,
         )
 
@@ -177,36 +188,33 @@ def check_market_data() -> ServiceStatus:
     try:
         from ..services import services
 
-        # Test with a known stable ticker
-        info = services.market_data.get_ticker_info("AAPL")
-        elapsed = (time.perf_counter() - start) * 1000
+        # The probe ticker is centralized configuration for this health check.
+        info = services.market_data.get_ticker_info(HEALTH_CHECK_TICKER)
 
         if info and info.current_price:
-            return ServiceStatus(
-                name="market_data",
-                status="healthy",
-                response_time_ms=round(elapsed, 2),
+            return _service_status(
+                "market_data",
+                "healthy",
+                started_at=start,
                 details={
                     "provider": "yfinance",
-                    "test_ticker": "AAPL",
+                    "test_ticker": HEALTH_CHECK_TICKER,
                     "test_price": info.current_price,
                 },
             )
-        else:
-            return ServiceStatus(
-                name="market_data",
-                status="degraded",
-                response_time_ms=round(elapsed, 2),
-                details={"provider": "yfinance"},
-                error="Could not fetch ticker data",
-            )
-    except Exception as e:
-        elapsed = (time.perf_counter() - start) * 1000
-        return ServiceStatus(
-            name="market_data",
-            status="unhealthy",
-            response_time_ms=round(elapsed, 2),
-            error=str(e)[:100],
+        return _service_status(
+            "market_data",
+            "degraded",
+            started_at=start,
+            details={"provider": "yfinance"},
+            error="Could not fetch ticker data",
+        )
+    except Exception as exc:
+        return _service_status(
+            "market_data",
+            "unhealthy",
+            started_at=start,
+            error=str(exc)[:100],
         )
 
 
@@ -218,40 +226,37 @@ def check_sentiment() -> ServiceStatus:
         from ..services import services
 
         if not settings.ai_services.enable_sentiment:
-            return ServiceStatus(
-                name="sentiment",
-                status="disabled",
+            return _service_status(
+                "sentiment",
+                "disabled",
                 details={"reason": "Service disabled in config"},
             )
 
         # Check if service reports healthy (without loading model)
         healthy = services.sentiment.health_check()
-        elapsed = (time.perf_counter() - start) * 1000
 
         if healthy:
-            return ServiceStatus(
-                name="sentiment",
-                status="healthy",
-                response_time_ms=round(elapsed, 2),
+            return _service_status(
+                "sentiment",
+                "healthy",
+                started_at=start,
                 details={
                     "model": settings.ai_services.sentiment_model,
                     "loaded": services.sentiment._model is not None,
                 },
             )
-        else:
-            return ServiceStatus(
-                name="sentiment",
-                status="unhealthy",
-                response_time_ms=round(elapsed, 2),
-                error="Service health check failed",
-            )
-    except Exception as e:
-        elapsed = (time.perf_counter() - start) * 1000
-        return ServiceStatus(
-            name="sentiment",
-            status="unhealthy",
-            response_time_ms=round(elapsed, 2),
-            error=str(e)[:100],
+        return _service_status(
+            "sentiment",
+            "unhealthy",
+            started_at=start,
+            error="Service health check failed",
+        )
+    except Exception as exc:
+        return _service_status(
+            "sentiment",
+            "unhealthy",
+            started_at=start,
+            error=str(exc)[:100],
         )
 
 
@@ -263,36 +268,33 @@ def check_volatility() -> ServiceStatus:
         from ..services import services
 
         if not settings.ai_services.enable_volatility:
-            return ServiceStatus(
-                name="volatility",
-                status="disabled",
+            return _service_status(
+                "volatility",
+                "disabled",
                 details={"reason": "Service disabled in config"},
             )
 
         healthy = services.volatility.health_check()
-        elapsed = (time.perf_counter() - start) * 1000
 
         if healthy:
-            return ServiceStatus(
-                name="volatility",
-                status="healthy",
-                response_time_ms=round(elapsed, 2),
+            return _service_status(
+                "volatility",
+                "healthy",
+                started_at=start,
                 details={"model": "GARCH(1,1)"},
             )
-        else:
-            return ServiceStatus(
-                name="volatility",
-                status="unhealthy",
-                response_time_ms=round(elapsed, 2),
-                error="arch package not available",
-            )
-    except Exception as e:
-        elapsed = (time.perf_counter() - start) * 1000
-        return ServiceStatus(
-            name="volatility",
-            status="unhealthy",
-            response_time_ms=round(elapsed, 2),
-            error=str(e)[:100],
+        return _service_status(
+            "volatility",
+            "unhealthy",
+            started_at=start,
+            error="arch package not available",
+        )
+    except Exception as exc:
+        return _service_status(
+            "volatility",
+            "unhealthy",
+            started_at=start,
+            error=str(exc)[:100],
         )
 
 
@@ -304,39 +306,36 @@ def check_embeddings() -> ServiceStatus:
         from ..services import services
 
         if not settings.ai_services.enable_embeddings:
-            return ServiceStatus(
-                name="embeddings",
-                status="disabled",
+            return _service_status(
+                "embeddings",
+                "disabled",
                 details={"reason": "Service disabled in config"},
             )
 
         healthy = services.embeddings.health_check()
-        elapsed = (time.perf_counter() - start) * 1000
 
         if healthy:
-            return ServiceStatus(
-                name="embeddings",
-                status="healthy",
-                response_time_ms=round(elapsed, 2),
+            return _service_status(
+                "embeddings",
+                "healthy",
+                started_at=start,
                 details={
                     "model": settings.ai_services.embedding_model,
                     "loaded": services.embeddings._model is not None,
                 },
             )
-        else:
-            return ServiceStatus(
-                name="embeddings",
-                status="unhealthy",
-                response_time_ms=round(elapsed, 2),
-                error="Service health check failed",
-            )
-    except Exception as e:
-        elapsed = (time.perf_counter() - start) * 1000
-        return ServiceStatus(
-            name="embeddings",
-            status="unhealthy",
-            response_time_ms=round(elapsed, 2),
-            error=str(e)[:100],
+        return _service_status(
+            "embeddings",
+            "unhealthy",
+            started_at=start,
+            error="Service health check failed",
+        )
+    except Exception as exc:
+        return _service_status(
+            "embeddings",
+            "unhealthy",
+            started_at=start,
+            error=str(exc)[:100],
         )
 
 
@@ -380,7 +379,7 @@ def get_health_status() -> HealthResponse:
 
     return HealthResponse(
         status=overall,
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         services=services_status,
         summary=summary,
     )

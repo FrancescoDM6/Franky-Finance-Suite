@@ -6,15 +6,18 @@ Provides protection against:
 - Infinite tool loops (max iterations)
 """
 
-import time
+import logging
+import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Optional
-import os
-import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class CircuitState(Enum):
@@ -66,7 +69,7 @@ class CircuitBreaker:
                     if elapsed > timedelta(seconds=self.recovery_timeout):
                         self._state = CircuitState.HALF_OPEN
                         self._half_open_calls = 1
-                        logging.info(f"Circuit '{self.name}' entering HALF_OPEN state")
+                        logger.info("Circuit '%s' entering HALF_OPEN state", self.name)
                         return True
                 return False
 
@@ -82,7 +85,7 @@ class CircuitBreaker:
         """Record a successful call."""
         with self._lock:
             if self._state == CircuitState.HALF_OPEN:
-                print(f"✅ Circuit '{self.name}' recovered, closing")
+                logger.info("Circuit '%s' recovered, closing", self.name)
             self._state = CircuitState.CLOSED
             self._failure_count = 0
 
@@ -95,11 +98,13 @@ class CircuitBreaker:
             if self._state == CircuitState.HALF_OPEN:
                 # Failed during recovery test
                 self._state = CircuitState.OPEN
-                print(f"❌ Circuit '{self.name}' failed recovery, reopening")
+                logger.warning("Circuit '%s' failed recovery, reopening", self.name)
             elif self._failure_count >= self.failure_threshold:
                 self._state = CircuitState.OPEN
-                print(
-                    f"🔴 Circuit '{self.name}' OPEN after {self._failure_count} failures"
+                logger.warning(
+                    "Circuit '%s' OPEN after %s failures",
+                    self.name,
+                    self._failure_count,
                 )
 
     def get_state(self) -> dict:

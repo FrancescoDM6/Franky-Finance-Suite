@@ -4,9 +4,13 @@ Tracks memory/CPU usage and gates heavyweight operations to prevent OOM kills
 on Oracle Free Tier ARM instances.
 """
 
+import logging
 import os
 import threading
 from typing import Optional
+
+
+logger = logging.getLogger(__name__)
 
 
 # Feature resource requirements (relative weight)
@@ -63,7 +67,7 @@ class ResourceMonitor:
                 import psutil
                 self._psutil = psutil
             except ImportError:
-                print("Warning: psutil not installed. Resource monitoring disabled.")
+                logger.warning("psutil not installed. Resource monitoring disabled.")
                 return None
         return self._psutil
     
@@ -103,8 +107,12 @@ class ResourceMonitor:
         # Check memory threshold
         current_memory = self.get_memory_percent()
         if current_memory >= self._memory_threshold:
-            print(f"⚠️ Memory at {current_memory:.1f}% (threshold: {self._memory_threshold}%). "
-                  f"Blocking {feature}.")
+            logger.warning(
+                "Memory at %.1f%% (threshold: %s%%). Blocking %s.",
+                current_memory,
+                self._memory_threshold,
+                feature,
+            )
             return False
         
         # Check if feature would push us over
@@ -112,8 +120,11 @@ class ResourceMonitor:
         projected_memory = current_memory + (feature_weight * 20)  # Rough estimate
         
         if projected_memory >= self._memory_threshold:
-            print(f"⚠️ Projected memory {projected_memory:.1f}% would exceed threshold. "
-                  f"Blocking {feature}.")
+            logger.warning(
+                "Projected memory %.1f%% would exceed threshold. Blocking %s.",
+                projected_memory,
+                feature,
+            )
             return False
         
         return True
@@ -121,7 +132,7 @@ class ResourceMonitor:
     def disable_feature(self, feature: str):
         """Manually disable a feature (e.g., after OOM recovery)."""
         self._disabled_features.add(feature)
-        print(f"Feature '{feature}' disabled by ResourceMonitor")
+        logger.info("Feature '%s' disabled by ResourceMonitor", feature)
     
     def enable_feature(self, feature: str):
         """Re-enable a previously disabled feature."""

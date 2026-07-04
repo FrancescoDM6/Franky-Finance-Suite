@@ -44,18 +44,22 @@ class ModelCascade:
     smaller models for simpler tasks.
     """
 
-    # Gemini model configurations (2025/2026 pricing)
+    # Gemini model configurations.
+    # Pricing: paid-tier, text, per-1M rates as of 2026-06 (see ai.google.dev
+    # /gemini-api/docs/pricing). Output rates include thinking tokens on the 2.5
+    # family. 2.5-pro input/output rates shown are for prompts <= 200k tokens
+    # (larger prompts are billed at $2.50/$15.00 per 1M).
     MODELS = {
         TaskComplexity.SIMPLE: ModelConfig(
             name="gemini-2.5-flash-lite",
-            cost_per_1k_input=0.000075,  # $0.075 per 1M
-            cost_per_1k_output=0.0003,  # $0.30 per 1M
+            cost_per_1k_input=0.0001,  # $0.10 per 1M
+            cost_per_1k_output=0.0004,  # $0.40 per 1M
             max_tokens=8192,
         ),
         TaskComplexity.MEDIUM: ModelConfig(
             name="gemini-2.5-flash",
-            cost_per_1k_input=0.00015,  # $0.15 per 1M
-            cost_per_1k_output=0.0006,  # $0.60 per 1M
+            cost_per_1k_input=0.0003,  # $0.30 per 1M
+            cost_per_1k_output=0.0025,  # $2.50 per 1M (incl. thinking tokens)
             max_tokens=65536,
             supports_tools=True,
         ),

@@ -5,7 +5,8 @@ with user-selectable forecast horizon.
 """
 
 import reflex as rx
-from ..state import ResearchState
+
+from ..volatility_state import VolatilityState
 
 
 def horizon_selector() -> rx.Component:
@@ -19,8 +20,8 @@ def horizon_selector() -> rx.Component:
             rx.select.item("1 Month (21 days)", value="21"),
             rx.select.item("3 Months (63 days)", value="63"),
         ),
-        value=ResearchState.volatility_horizon,
-        on_change=ResearchState.set_volatility_horizon,
+        value=VolatilityState.volatility_horizon,
+        on_change=VolatilityState.set_volatility_horizon,
         size="2",
     )
 
@@ -32,7 +33,7 @@ def volatility_comparison_row() -> rx.Component:
         rx.vstack(
             rx.text("GARCH", size="1", color_scheme="gray"),
             rx.text(
-                ResearchState.volatility_garch_vol_pct,
+                VolatilityState.volatility_garch_vol_pct,
                 size="3",
                 weight="bold",
             ),
@@ -44,7 +45,7 @@ def volatility_comparison_row() -> rx.Component:
         rx.vstack(
             rx.text("IV", size="1", color_scheme="gray"),
             rx.text(
-                ResearchState.volatility_implied_vol_pct,
+                VolatilityState.volatility_implied_vol_pct,
                 size="3",
                 weight="bold",
             ),
@@ -56,11 +57,11 @@ def volatility_comparison_row() -> rx.Component:
         rx.vstack(
             rx.text("Ratio", size="1", color_scheme="gray"),
             rx.text(
-                ResearchState.volatility_iv_garch_ratio_fmt,
+                VolatilityState.volatility_iv_garch_ratio_fmt,
                 size="3",
                 weight="bold",
                 color=rx.match(
-                    ResearchState.volatility_interpretation_color,
+                    VolatilityState.volatility_interpretation_color,
                     ("amber", "var(--amber-11)"),
                     ("green", "var(--green-11)"),
                     ("blue", "var(--blue-11)"),
@@ -75,7 +76,7 @@ def volatility_comparison_row() -> rx.Component:
         rx.vstack(
             rx.text("Diff", size="1", color_scheme="gray"),
             rx.text(
-                ResearchState.volatility_iv_garch_diff_pct,
+                VolatilityState.volatility_iv_garch_diff_pct,
                 size="2",
                 weight="medium",
             ),
@@ -96,7 +97,7 @@ def expected_range_row() -> rx.Component:
         rx.hstack(
             rx.text(
                 "$",
-                ResearchState.volatility_range_low.to(int),
+                VolatilityState.volatility_range_low.to(int),
                 size="2",
                 weight="medium",
                 color="var(--green-11)",
@@ -104,7 +105,7 @@ def expected_range_row() -> rx.Component:
             rx.text("-", size="2", color_scheme="gray"),
             rx.text(
                 "$",
-                ResearchState.volatility_range_high.to(int),
+                VolatilityState.volatility_range_high.to(int),
                 size="2",
                 weight="medium",
                 color="var(--red-11)",
@@ -125,18 +126,18 @@ def expected_range_row() -> rx.Component:
 def interpretation_badge() -> rx.Component:
     """Badge showing IV interpretation."""
     return rx.cond(
-        ResearchState.volatility_interpretation != "",
+        VolatilityState.volatility_interpretation != "",
         rx.callout(
             rx.hstack(
                 rx.icon("info", size=14),
                 rx.text(
-                    ResearchState.volatility_interpretation,
+                    VolatilityState.volatility_interpretation,
                     size="1",
                 ),
                 spacing="2",
                 align="center",
             ),
-            color_scheme=ResearchState.volatility_interpretation_color,
+            color_scheme=VolatilityState.volatility_interpretation_color,
             variant="soft",
             size="1",
         ),
@@ -164,23 +165,23 @@ def volatility_card() -> rx.Component:
             rx.divider(),
             # Loading state
             rx.cond(
-                ResearchState.volatility_loading,
+                VolatilityState.volatility_loading,
                 rx.center(
                     rx.spinner(size="2"),
                     padding="4",
                 ),
                 # Error state
                 rx.cond(
-                    ResearchState.volatility_error != "",
+                    VolatilityState.volatility_error != "",
                     rx.callout(
-                        ResearchState.volatility_error,
+                        VolatilityState.volatility_error,
                         icon="circle-alert",
                         color_scheme="orange",
                         size="1",
                     ),
                     # Data state
                     rx.cond(
-                        ResearchState.volatility_available,
+                        VolatilityState.volatility_available,
                         rx.vstack(
                             volatility_comparison_row(),
                             rx.divider(),

@@ -74,8 +74,9 @@ class TestCacheServiceSet:
 
         call_args = mock_db.execute.call_args[0]
         params = call_args[1]
-        expires_at = params[4]
-        cached_at = params[5]
+        # params: (ticker_symbol, data_type, data, expires_at, cached_at)
+        expires_at = params[3]
+        cached_at = params[4]
 
         expected_ttl = timedelta(minutes=5)
         actual_ttl = expires_at - cached_at
@@ -91,8 +92,9 @@ class TestCacheServiceSet:
 
         call_args = mock_db.execute.call_args[0]
         params = call_args[1]
-        expires_at = params[4]
-        cached_at = params[5]
+        # params: (ticker_symbol, data_type, data, expires_at, cached_at)
+        expires_at = params[3]
+        cached_at = params[4]
 
         expected_ttl = timedelta(minutes=30)
         actual_ttl = expires_at - cached_at
@@ -115,7 +117,8 @@ class TestCacheServiceSet:
 
         call_args = mock_db.execute.call_args[0]
         params = call_args[1]
-        json_data = json.loads(params[3])
+        # params: (ticker_symbol, data_type, data, expires_at, cached_at)
+        json_data = json.loads(params[2])
 
         assert json_data["symbol"] == "AAPL"
         assert json_data["price"] == 175.50

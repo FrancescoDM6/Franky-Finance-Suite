@@ -8,25 +8,30 @@ Usage:
     python scripts/train_sentiment_model.py
 """
 
+import logging
 import os
+import warnings
+
 import joblib
 import numpy as np
-from datasets import load_dataset
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.svm import LinearSVC
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.metrics import classification_report, accuracy_score
 import pandas as pd
-import warnings
+from datasets import load_dataset
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.svm import LinearSVC
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Configuration
 MODEL_PATH = "phinan/data/sentiment_model.joblib"
 DATASET_NAME = "zeroshot/twitter-financial-news-sentiment"
 
 def train():
-    print(f"Loading dataset: {DATASET_NAME}...")
+    logger.info("Loading dataset: %s...", DATASET_NAME)
     try:
         # Load dataset
         dataset = load_dataset(DATASET_NAME)
@@ -42,7 +47,7 @@ def train():
         label_map = {0: 0, 1: 2, 2: 1}  
         df["label"] = df["label"].map(label_map)
         
-        print(f"Loaded {len(df)} examples.")
+        logger.info("Loaded %s examples.", len(df))
         
         X = df["text"]
         y = df["label"]
@@ -52,7 +57,7 @@ def train():
             X, y, test_size=0.2, random_state=42, stratify=y
         )
 
-        print("Training model with GridSearch (SVM)...")
+        logger.info("Training model with GridSearch (SVM)...")
         
         # Pipeline: TF-IDF -> LinearSVC (calibrated for probabilities)
         # We need CalibratedClassifierCV because LinearSVC does not support predict_proba by default
@@ -81,27 +86,31 @@ def train():
 
         grid_search.fit(X_train, y_train)
 
-        print(f"Best params: {grid_search.best_params_}")
+        logger.info("Best params: %s", grid_search.best_params_)
         best_model = grid_search.best_estimator_
 
         # Evaluate
-        print("\nEvaluating best model...")
+        logger.info("\nEvaluating best model...")
         y_pred = best_model.predict(X_test)
         accuracy = accuracy_score(y_test, y_pred)
-        print(f"Accuracy: {accuracy:.4f}")
-        print("\nClassification Report:")
-        print(classification_report(y_test, y_pred, target_names=["Negative", "Neutral", "Positive"]))
+        logger.info("Accuracy: %.4f", accuracy)
+        logger.info("\nClassification Report:")
+        logger.info(
+            classification_report(
+                y_test,
+                y_pred,
+                target_names=["Negative", "Neutral", "Positive"],
+            )
+        )
 
         # Save
         os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
         joblib.dump(best_model, MODEL_PATH)
-        print(f"\nModel saved to {MODEL_PATH}")
+        logger.info("\nModel saved to %s", MODEL_PATH)
         
     except Exception as e:
-        import traceback
         import sys
-        print(f"Error during training: {e}")
-        traceback.print_exc()
+        logger.exception("Error during training: %s", e)
         sys.exit(1)
 
 if __name__ == "__main__":
