@@ -233,8 +233,7 @@ metrics the UI emphasizes.
 - Embeddings service (sentence-transformers)
 
 **Planned / stubs**
-- Persistent chat assistant (an `AppState.assistant_visible` toggle exists, but
-  no chat UI is wired up yet)
+- Persistent chat assistant (not started)
 - Notes module
 - Options module (beyond the research options card)
 
@@ -258,6 +257,22 @@ The project targets Railway using a split frontend/backend container.
 The Docker build compiles frontend assets (`reflex export`), then the runtime
 serves them via Caddy while `start.py` handles the backend. See `Dockerfile`,
 `Caddyfile`, `scripts/start.py`, and `docker-compose.yml`.
+
+### Database backups
+
+All persistent data lives in a single DuckDB file (`/data/phinan.duckdb` on
+Railway, `./data/phinan.duckdb` locally). There is no automatic backup, so
+back it up before risky changes and periodically in production:
+
+- **Railway:** attach the `/data` volume and use volume snapshots, or run a
+  one-off shell and copy the file out (`railway ssh` / `railway run`).
+- **Manual export (portable across DuckDB versions):**
+  ```sql
+  -- duckdb /data/phinan.duckdb
+  EXPORT DATABASE '/data/backup_2026_07_04' (FORMAT PARQUET);
+  ```
+- **Local:** copy the file while the app is stopped (DuckDB holds an
+  exclusive write lock while the backend runs).
 
 ## Troubleshooting
 

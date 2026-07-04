@@ -1,0 +1,41 @@
+# Tool configuration for the Phinan Finance Suite.
+# Dependencies stay in requirements*.txt (Railway build expects them there).
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# Ruff's default rule set, pinned explicitly so CI behavior is stable.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers --tb=short"
+markers = [
+    "unit: Fast unit tests with no external dependencies",
+    "integration: Integration tests that may use database or mocked APIs",
+    "e2e: End-to-end workflow tests",
+    "slow: Slow tests (skip with -m 'not slow')",
+    "performance: Performance benchmark tests",
+]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+# Informational for now (~90 errors, mostly Reflex Var typing noise).
+# Tighten by enabling check_untyped_defs once the count is workable.
+check_untyped_defs = false
+
+[tool.coverage.run]
+source = ["phinan"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
