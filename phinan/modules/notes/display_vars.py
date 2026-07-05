@@ -178,3 +178,23 @@ class TermsVarsMixin(rx.State, mixin=True):
     def coupon_needs_barrier(self) -> bool:
         """Contingent/Memory coupons need a coupon barrier to matter."""
         return self.form_coupon_type != "Fixed"
+
+    @rx.var
+    def has_saved(self) -> bool:
+        return len(self.saved_analyses) > 0
+
+    @rx.var
+    def saved_rows(self) -> list[dict]:
+        """Saved analyses list, preformatted for the UI."""
+        rows = []
+        for item in self.saved_analyses:
+            fee = item.get("implied_fee_pct")
+            rows.append(
+                {
+                    "id": item.get("id", 0),
+                    "label": item.get("label", "Untitled note"),
+                    "created_at": item.get("created_at", ""),
+                    "fee": _pct(fee) if fee is not None else "?",
+                }
+            )
+        return rows

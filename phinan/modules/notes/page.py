@@ -12,7 +12,9 @@ from ...state.user_context import UserContextState
 from .components import (
     alternatives_card,
     mc_chart,
+    narrative_card,
     risk_card,
+    saved_list,
     terms_form,
     upload_card,
     valuation_card,
@@ -54,6 +56,7 @@ def _results_column() -> rx.Component:
             risk_card(),
             mc_chart(),
             rx.cond(NotesState.has_alternatives, alternatives_card(), rx.fragment()),
+            narrative_card(),
             spacing="4",
             width="100%",
         ),
@@ -71,6 +74,7 @@ def notes_content() -> rx.Component:
             color="var(--pfs-text-muted)",
         ),
         upload_card(),
+        saved_list(),
         rx.flex(
             rx.box(terms_form(), width=rx.breakpoints(initial="100%", md="360px"), flex_shrink="0"),
             rx.box(_results_column(), flex="1", min_width="0"),
@@ -88,7 +92,11 @@ def notes_content() -> rx.Component:
 @rx.page(
     route="/notes",
     title="Notes | Phinan Finance Suite",
-    on_load=[UserContextState.load_context, PortfolioState.load_positions],
+    on_load=[
+        UserContextState.load_context,
+        PortfolioState.load_positions,
+        NotesState.load_saved_list,
+    ],
 )
 def notes_page() -> rx.Component:
     """Notes page."""

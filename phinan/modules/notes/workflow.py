@@ -137,6 +137,17 @@ class NotesWorkflowMixin(rx.State, mixin=True):
             self._store_analysis(analysis)
             self.terms_dirty = False
 
+            # 4. LLM narrative (optional: failure never touches the numbers)
+            self.analysis_stage = "Writing Phin's take..."
+            yield
+            analysis.narrative = await self._generate_narrative(analysis)
+
+            if generation != self._analysis_generation:
+                return
+
+            # 5. Autosave
+            await self._autosave(analysis)
+
         except Exception as e:
             logger.error("Note analysis error: %s", e)
             if generation == self._analysis_generation:
@@ -145,6 +156,114 @@ class NotesWorkflowMixin(rx.State, mixin=True):
             if generation == self._analysis_generation:
                 self.is_analyzing = False
                 self.analysis_stage = ""
+
+    async def _generate_narrative(self, analysis) -> str:
+        """Generate the "Phin's Take" narrative; failures are isolated."""
+        from ...config.profiles import get_profile
+        from ...services import services
+        from ...state.user_context import UserContextState
+        from . import prompts
+
+        self.narrative = ""
+        self.narrative_error = ""
+        try:
+            healthy = await run_sync(services.synthesis.health_check)
+            if not healthy:
+                self.narrative_error = "AI narrative unavailable: service offline"
+                return ""
+
+            user_ctx = await self.get_state(UserContextState)
+            profile = get_profile(user_ctx.active_profile)
+            prompt = prompts.build_note_narrative_prompt(
+                analysis.note.model_dump(mode="json"),
+                analysis.simulation.model_dump(mode="json"),
+                [a.model_dump(mode="json") for a in analysis.alternatives],
+                profile.name,
+                profile.description,
+            )
+            result = await run_sync(services.synthesis.generate_from_prompt, prompt)
+            if result.success and result.content:
+                self.narrative = result.content
+                return result.content
+            self.narrative_error = "AI narrative failed: please try again"
+            return ""
+        except Exception as e:
+            logger.warning("Narrative generation failed: %s", e)
+            self.narrative_error = "AI narrative failed: please try again"
+            return ""
+
+    async def _autosave(self, analysis) -> None:
+        """Persist the analysis; a save failure never blocks the results."""
+        from ...services import services
+        from . import persistence
+
+        try:
+            analysis_id = await run_sync(
+                persistence.save_analysis,
+                services.db,
+                analysis,
+                self.source_filename,
+            )
+            self.current_analysis_id = analysis_id
+            await self._refresh_saved_list()
+        except Exception as e:
+            logger.error("Could not save note analysis: %s", e)
+
+    async def load_saved_list(self):
+        """Page-load hook: populate the saved analyses list."""
+        await self._refresh_saved_list()
+
+    async def _refresh_saved_list(self):
+        from ...services import services
+        from . import persistence
+
+        try:
+            self.saved_analyses = await run_sync(
+                persistence.list_analyses, services.db
+            )
+        except Exception as e:
+            logger.warning("Could not load saved analyses: %s", e)
+
+    async def load_saved(self, analysis_id: int):
+        """Load a saved analysis back into the form and results."""
+        from ...services import services
+        from . import persistence
+
+        analysis = await run_sync(
+            persistence.load_analysis, services.db, analysis_id
+        )
+        if analysis is None:
+            self.error_message = "Could not load the saved analysis"
+            return
+
+        self._apply_form_fields(form_logic.form_from_note(analysis.note))
+        self._parsed_observation_dates = [
+            od.model_dump(mode="json") for od in analysis.note.observation_dates
+        ]
+        self._store_analysis(analysis)
+        self.parse_warnings = []
+        self.narrative_error = ""
+        self.error_message = ""
+        self.form_error = ""
+        self.terms_dirty = False
+        self.source_filename = ""
+        self.current_analysis_id = analysis_id
+
+    async def delete_saved(self, analysis_id: int):
+        """Delete a saved analysis (invoked from a confirm dialog)."""
+        from ...services import services
+        from . import persistence
+
+        try:
+            await run_sync(persistence.delete_analysis, services.db, analysis_id)
+        except Exception as e:
+            logger.error("Could not delete note analysis %s: %s", analysis_id, e)
+            self.error_message = "Could not delete the saved analysis"
+            return
+        if self.current_analysis_id == analysis_id:
+            self.current_analysis_id = 0
+        await self._refresh_saved_list()
+        return rx.toast.success("Analysis deleted")
 
     def _store_analysis(self, analysis) -> None:
         """Store a NoteAnalysis as JSON-safe dicts (lean state)."""
@@ -231,3 +350,5 @@ class NotesWorkflowMixin(rx.State, mixin=True):
         self.autocall_timeline = []
         self.alternatives = []
         self.narrative = ""
+        self.narrative_error = ""
+        self.current_analysis_id = 0

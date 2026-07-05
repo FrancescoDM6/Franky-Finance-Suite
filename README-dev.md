@@ -225,6 +225,9 @@ metrics the UI emphasizes.
 - Research module (quality/analyst/range/news/options cards, sentiment,
   profile-aware insights, LLM synthesis)
 - Portfolio module (positions, live P/L, gainers/losers, research integration)
+- Notes module (term-sheet PDF extraction with editable correction form,
+  Monte Carlo valuation of autocallables/barrier notes, fee decomposition,
+  risk scenarios, alternatives comparison, saved analyses, AI narrative)
 - Home dashboard with the LLM Daily Brief
 
 **Implemented but inactive (disabled by default)**
@@ -234,7 +237,6 @@ metrics the UI emphasizes.
 
 **Planned / stubs**
 - Persistent chat assistant (not started)
-- Notes module
 - Options module (beyond the research options card)
 
 ## Deployment

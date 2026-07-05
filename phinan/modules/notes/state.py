@@ -73,3 +73,7 @@ class NotesState(
     alternatives: list[dict[str, Any]] = []
     narrative: str = ""
     narrative_error: str = ""
+
+    # Saved analyses (persistence)
+    saved_analyses: list[dict[str, Any]] = []
+    current_analysis_id: int = 0
