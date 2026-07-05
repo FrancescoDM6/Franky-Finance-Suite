@@ -9,7 +9,14 @@ import reflex as rx
 from ...components.layout import main_layout
 from ...modules.portfolio.state import PortfolioState
 from ...state.user_context import UserContextState
-from .components import risk_card, terms_form, upload_card, valuation_card
+from .components import (
+    alternatives_card,
+    mc_chart,
+    risk_card,
+    terms_form,
+    upload_card,
+    valuation_card,
+)
 from .state import NotesState
 
 
@@ -45,6 +52,8 @@ def _results_column() -> rx.Component:
         rx.vstack(
             valuation_card(),
             risk_card(),
+            mc_chart(),
+            rx.cond(NotesState.has_alternatives, alternatives_card(), rx.fragment()),
             spacing="4",
             width="100%",
         ),

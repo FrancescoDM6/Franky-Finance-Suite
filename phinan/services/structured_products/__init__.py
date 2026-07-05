@@ -124,16 +124,26 @@ class StructuredProductService:
         as_of: Optional[date] = None,
     ) -> NoteAnalysis:
         """Run the full Monte Carlo analysis for a note."""
+        from .alternatives import compare_alternatives
+        from .payoff import build_observation_schedule
+
         if market is None:
             market = self.build_market_inputs(note)
 
-        simulation, _worst_terminal = simulate_note(
+        simulation, worst_terminal = simulate_note(
             note, market, n_paths=n_paths, seed=seed, as_of=as_of
         )
 
         self._sanity_check_bond_floor(note, simulation)
 
-        return NoteAnalysis(note=note, simulation=simulation)
+        t_years = build_observation_schedule(note, as_of)[-1].t_years
+        alternatives = compare_alternatives(
+            note, market, simulation, worst_terminal, t_years
+        )
+
+        return NoteAnalysis(
+            note=note, simulation=simulation, alternatives=alternatives
+        )
 
     def _sanity_check_bond_floor(self, note: StructuredNote, simulation) -> None:
         """Warn if MC and closed form disagree on a fully guaranteed note."""

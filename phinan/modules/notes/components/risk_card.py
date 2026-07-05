@@ -65,6 +65,38 @@ def risk_card() -> rx.Component:
                 spacing="1",
                 width="100%",
             ),
+            rx.cond(
+                NotesState.has_timeline,
+                rx.vstack(
+                    rx.divider(),
+                    rx.text(
+                        "Autocall timeline (chance of early redemption)",
+                        size="1",
+                        weight="medium",
+                        color="var(--pfs-text-muted)",
+                    ),
+                    rx.foreach(
+                        NotesState.timeline_rows,
+                        lambda row: rx.hstack(
+                            rx.text(row["date"], size="2"),
+                            rx.spacer(),
+                            rx.text(row["probability"], size="2"),
+                            rx.text(
+                                "(cum. ",
+                                row["cumulative"],
+                                ")",
+                                size="1",
+                                color="var(--pfs-text-muted)",
+                            ),
+                            width="100%",
+                            align="center",
+                        ),
+                    ),
+                    spacing="1",
+                    width="100%",
+                ),
+                rx.fragment(),
+            ),
             spacing="3",
             width="100%",
         ),

@@ -11,7 +11,7 @@ from typing import Any
 
 import reflex as rx
 
-from .display_vars import TermsVarsMixin, ValuationVarsMixin
+from .display_vars import AlternativesVarsMixin, TermsVarsMixin, ValuationVarsMixin
 from .workflow import NotesWorkflowMixin
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ __all__ = ["NotesState"]
 class NotesState(
     NotesWorkflowMixin,
     ValuationVarsMixin,
+    AlternativesVarsMixin,
     TermsVarsMixin,
     rx.State,
 ):

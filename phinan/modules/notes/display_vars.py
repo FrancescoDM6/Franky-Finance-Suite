@@ -105,6 +105,24 @@ class ValuationVarsMixin(rx.State, mixin=True):
         ]
 
     @rx.var
+    def timeline_rows(self) -> list[dict]:
+        """Autocall probabilities per observation, preformatted."""
+        rows = []
+        for item in self.autocall_timeline:
+            rows.append(
+                {
+                    "date": item.get("date") or f"{item.get('t_years', 0):.2f}y",
+                    "probability": _pct(item.get("probability"), 0),
+                    "cumulative": _pct(item.get("cumulative"), 0),
+                }
+            )
+        return rows
+
+    @rx.var
+    def has_timeline(self) -> bool:
+        return len(self.autocall_timeline) > 0
+
+    @rx.var
     def audit_footnote(self) -> str:
         """What the simulation actually used (transparency footnote)."""
         sim = self.simulation
@@ -122,6 +140,31 @@ class ValuationVarsMixin(rx.State, mixin=True):
         if len(vols) > 1:
             parts.append(f"correlation {sim.get('correlation_used', 0):.2f}")
         return "Simulation inputs: " + " | ".join(parts)
+
+
+class AlternativesVarsMixin(rx.State, mixin=True):
+    """Formatting for the alternatives comparison table."""
+
+    @rx.var
+    def has_alternatives(self) -> bool:
+        return len(self.alternatives) > 0
+
+    @rx.var
+    def alternative_rows(self) -> list[dict]:
+        """Comparison rows with all numbers preformatted."""
+        rows = []
+        for alt in self.alternatives:
+            rows.append(
+                {
+                    "strategy": alt.get("strategy", ""),
+                    "expected_irr": _pct(alt.get("expected_irr"), signed=True),
+                    "median": _pct(alt.get("p50"), signed=True),
+                    "p5": _pct(alt.get("p5"), signed=True),
+                    "max_loss": _pct(alt.get("max_loss_pct")),
+                    "caveat": alt.get("caveat", ""),
+                }
+            )
+        return rows
 
 
 class TermsVarsMixin(rx.State, mixin=True):
