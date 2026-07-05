@@ -369,10 +369,13 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
             logger.error(
                 "Error generating synthesis for %s: %s", self.selected_ticker, e
             )
-            self.llm_synthesis = ""
-            self.synthesis_error = "AI analysis failed: please try again"
+            if generation == self._search_generation:
+                self.llm_synthesis = ""
+                self.synthesis_error = "AI analysis failed: please try again"
         finally:
-            self.is_generating_synthesis = False
+            # A superseded run must not clear the newer run's spinner
+            if generation == self._search_generation:
+                self.is_generating_synthesis = False
 
     async def refresh_synthesis(self):
         """Manually refresh the AI synthesis using the current options snapshot."""

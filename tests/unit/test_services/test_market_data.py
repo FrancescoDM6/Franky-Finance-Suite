@@ -289,10 +289,69 @@ class TestMarketDataServiceFallback:
                 service._primary = mock_primary
                 service._fallback = mock_fallback
 
-                result = service.get_ticker_info("AAPL")
+                with patch("time.sleep"):  # skip retry backoff delays
+                    result = service.get_ticker_info("AAPL")
 
         assert result.symbol == "AAPL"
         mock_fallback.get_ticker_info.assert_called_once_with("AAPL")
+
+
+class TestMarketDataServiceRetry:
+    def _make_service(self, mock_cache):
+        with patch(
+            "phinan.services.market_data.service.get_cache_service",
+            return_value=mock_cache,
+        ):
+            with patch("phinan.services.market_data.service.settings") as mock_settings:
+                mock_settings.market_data.provider = "yfinance"
+                return MarketDataService()
+
+    def test_returns_first_truthy_result_without_retry(self, mock_cache):
+        service = self._make_service(mock_cache)
+        fetch = MagicMock(return_value={"price": 1.0})
+
+        with patch("time.sleep") as sleep:
+            result = service._fetch_with_retry(fetch, "ticker_info", "AAPL")
+
+        assert result == {"price": 1.0}
+        fetch.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_retries_falsy_result_then_succeeds(self, mock_cache):
+        service = self._make_service(mock_cache)
+        fetch = MagicMock(side_effect=[None, {"price": 1.0}])
+
+        with patch("time.sleep") as sleep:
+            result = service._fetch_with_retry(fetch, "ticker_info", "AAPL")
+
+        assert result == {"price": 1.0}
+        assert fetch.call_count == 2
+        sleep.assert_called_once()
+
+    def test_gives_up_after_max_attempts(self, mock_cache):
+        service = self._make_service(mock_cache)
+        fetch = MagicMock(return_value=None)
+
+        with patch("time.sleep") as sleep:
+            result = service._fetch_with_retry(fetch, "ticker_info", "AAPL")
+
+        assert result is None
+        assert fetch.call_count == service.RETRY_ATTEMPTS
+        assert sleep.call_count == service.RETRY_ATTEMPTS - 1
+
+    def test_backoff_grows_between_attempts(self, mock_cache):
+        service = self._make_service(mock_cache)
+        fetch = MagicMock(return_value=None)
+
+        with patch("time.sleep") as sleep:
+            service._fetch_with_retry(fetch, "ticker_info", "AAPL")
+
+        delays = [call.args[0] for call in sleep.call_args_list]
+        assert len(delays) == service.RETRY_ATTEMPTS - 1
+        # Exponential base doubles; jitter is at most +50%, so each delay
+        # must exceed the previous one's base
+        assert delays == sorted(delays)
+        assert delays[0] >= service.RETRY_BASE_DELAY
 
 
 class TestMarketDataServiceCapabilities:

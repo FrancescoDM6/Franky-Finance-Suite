@@ -114,6 +114,42 @@ class TestSynthesisServiceContextHash:
 
         assert hash1 != hash2
 
+    def test_context_hash_stable_within_price_band(
+        self, synthesis_service, sample_research_context
+    ):
+        # Sub-0.1% noise must not invalidate the cache
+        sample_research_context.ticker_info["current_price"] = 175.50
+        hash1 = synthesis_service._compute_context_hash(sample_research_context)
+
+        sample_research_context.ticker_info["current_price"] = 175.60
+        hash2 = synthesis_service._compute_context_hash(sample_research_context)
+
+        assert hash1 == hash2
+
+    def test_context_hash_changes_on_material_price_move(
+        self, synthesis_service, sample_research_context
+    ):
+        # A ~2% intraday move must invalidate the cache
+        sample_research_context.ticker_info["current_price"] = 175.50
+        hash1 = synthesis_service._compute_context_hash(sample_research_context)
+
+        sample_research_context.ticker_info["current_price"] = 178.90
+        hash2 = synthesis_service._compute_context_hash(sample_research_context)
+
+        assert hash1 != hash2
+
+    def test_context_hash_price_band_is_relative_to_scale(
+        self, synthesis_service, sample_research_context
+    ):
+        # Banding works at low price scales too (3 significant digits)
+        sample_research_context.ticker_info["current_price"] = 3.456
+        hash1 = synthesis_service._compute_context_hash(sample_research_context)
+
+        sample_research_context.ticker_info["current_price"] = 3.512
+        hash2 = synthesis_service._compute_context_hash(sample_research_context)
+
+        assert hash1 != hash2
+
     def test_context_hash_includes_options_expiration(
         self, synthesis_service, sample_research_context
     ):

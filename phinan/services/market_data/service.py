@@ -48,23 +48,46 @@ class MarketDataService:
         self._options_provider: OptionsProvider = yfinance
         self._analyst_provider: AnalystProvider = yfinance
 
+    # Retry policy for provider fetches. Kept small: a falsy result can also
+    # mean "no such ticker", and each retry costs latency and another API
+    # call against a possibly rate-limited provider.
+    RETRY_ATTEMPTS = 3
+    RETRY_BASE_DELAY = 0.5  # seconds; doubles each attempt, plus jitter
+
     def _fetch_with_retry(self, fetch, operation: str, symbol: str):
         """Call a provider fetch, retrying transient failures.
 
         Providers swallow exceptions and signal failure with a falsy result
         (None / empty), so a falsy return is the only retry signal available
         here. Rate-limited yfinance calls (HTTP 429) surface the same way as
-        an unknown ticker.
+        an unknown ticker, which is why attempts stay low.
 
-        TODO(Franky): implement the retry policy. Decide: number of attempts,
-        backoff shape (fixed vs exponential, jitter?), and whether some
-        operations should not retry at all because a falsy result usually
-        means "no such data" rather than a transient failure. Trade-off:
-        aggressive retries make the daily brief more complete during busy
-        market hours, but can make yfinance rate limiting worse.
-        Currently: single attempt, no retry.
+        Blocking time.sleep is fine here: this always runs in a worker
+        thread (callers go through run_sync), never on the event loop.
         """
-        return fetch()
+        import random
+        import time
+
+        result = fetch()
+        for attempt in range(1, self.RETRY_ATTEMPTS):
+            if result:
+                return result
+            delay = (
+                self.RETRY_BASE_DELAY
+                * (2 ** (attempt - 1))
+                * (1 + random.random() * 0.5)
+            )
+            logger.info(
+                "Retrying %s for %s (attempt %d/%d) in %.1fs",
+                operation,
+                symbol,
+                attempt + 1,
+                self.RETRY_ATTEMPTS,
+                delay,
+            )
+            time.sleep(delay)
+            result = fetch()
+        return result
 
     def health_check(self) -> bool:
         """Check if market data service is available."""

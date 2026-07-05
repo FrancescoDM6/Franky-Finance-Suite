@@ -32,7 +32,7 @@ class TestVolatilityState:
             await volatility_state._fetch_volatility_data(options_atm_iv=0.0)
             return volatility_state
 
-        state = asyncio.get_event_loop().run_until_complete(run_test())
+        state = asyncio.run(run_test())
 
         assert state.volatility_available is False
         assert state.volatility_error == "ATM IV not available"
@@ -66,7 +66,7 @@ class TestVolatilityState:
                 await volatility_state._fetch_volatility_data(options_atm_iv=0.30)
                 return volatility_state
 
-            state = asyncio.get_event_loop().run_until_complete(run_test())
+            state = asyncio.run(run_test())
 
         assert state.volatility_available is True
         assert state.volatility_implied_vol == 0.30
@@ -102,5 +102,5 @@ class TestVolatilityState:
 
             return volatility_state
 
-        state = asyncio.get_event_loop().run_until_complete(change_horizon())
+        state = asyncio.run(change_horizon())
         assert state.volatility_horizon == "63"

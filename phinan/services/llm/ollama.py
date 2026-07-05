@@ -102,14 +102,14 @@ class OllamaBackend:
     ):
         """Stream an Ollama response token by token.
 
-        Each chunk read is guarded by an inactivity timeout so a stalled
-        stream cannot hang the caller indefinitely. Failures and timeouts
-        feed the shared Ollama circuit breaker, same as chat().
+        The whole stream is consumed by one background thread that pushes
+        chunks onto a queue; each queue read is guarded by an inactivity
+        timeout so a stalled stream cannot hang the caller indefinitely.
+        Failures and timeouts feed the shared Ollama circuit breaker, same
+        as chat().
         """
-        from concurrent.futures import (
-            ThreadPoolExecutor,
-            TimeoutError as FuturesTimeoutError,
-        )
+        import queue
+        from concurrent.futures import ThreadPoolExecutor
 
         breaker = get_circuit_breaker("ollama")
         if not breaker.allow_request():
@@ -126,32 +126,44 @@ class OllamaBackend:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
 
+        chunks: queue.Queue = queue.Queue()
         sentinel = object()
-        # One reused worker thread for the whole stream; shut down with
-        # wait=False so a hung next() cannot block the generator's exit.
+
+        def consume_stream():
+            try:
+                response = client.chat(
+                    model=selected_model,
+                    messages=full_messages,
+                    stream=True,
+                )
+                for chunk in response:
+                    chunks.put(chunk)
+            except Exception as e:
+                chunks.put(e)
+            finally:
+                chunks.put(sentinel)
+
+        # Single worker consumes the whole stream; shut down with wait=False
+        # so a hung stream cannot block the generator's exit.
         executor = ThreadPoolExecutor(max_workers=1)
+        executor.submit(consume_stream)
         try:
-            response = client.chat(
-                model=selected_model,
-                messages=full_messages,
-                stream=True,
-            )
-            iterator = iter(response)
             while True:
-                future = executor.submit(next, iterator, sentinel)
                 try:
-                    chunk = future.result(timeout=DEFAULT_LLM_TIMEOUT)
-                except FuturesTimeoutError:
+                    item = chunks.get(timeout=DEFAULT_LLM_TIMEOUT)
+                except queue.Empty:
                     breaker.record_failure()
                     yield (
                         f"\n[Ollama stream stalled: no data for "
                         f"{DEFAULT_LLM_TIMEOUT:.0f}s]"
                     )
                     return
-                if chunk is sentinel:
+                if item is sentinel:
                     break
-                if "message" in chunk and "content" in chunk["message"]:
-                    yield chunk["message"]["content"]
+                if isinstance(item, Exception):
+                    raise item
+                if "message" in item and "content" in item["message"]:
+                    yield item["message"]["content"]
             breaker.record_success()
         except Exception as e:
             breaker.record_failure()

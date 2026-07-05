@@ -31,7 +31,7 @@ class TestResearchStateCoordination:
             return await _create_state_tree("shared-parent-test")
 
         _, research_state, options_state, volatility_state = (
-            asyncio.get_event_loop().run_until_complete(run_test())
+            asyncio.run(run_test())
         )
         research_state.selected_ticker = "AAPL"
         research_state.ticker_info = {"current_price": 200.0}
@@ -50,7 +50,7 @@ class TestResearchStateCoordination:
             return await _create_state_tree("delta-test")
 
         root, research_state, options_state, volatility_state = (
-            asyncio.get_event_loop().run_until_complete(run_test())
+            asyncio.run(run_test())
         )
         root._clean()
 
@@ -110,7 +110,7 @@ class TestResearchStateCoordination:
                 ]
                 return research_state, context
 
-        state, context = asyncio.get_event_loop().run_until_complete(run_test())
+        state, context = asyncio.run(run_test())
 
         assert state.llm_synthesis == "Analysis"
         assert context.options_summary == "Options snapshot"

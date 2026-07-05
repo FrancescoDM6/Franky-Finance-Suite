@@ -34,7 +34,7 @@ def create_research_state():
         await state.get_state(UserContextState)
         return manager, state
 
-    return asyncio.get_event_loop().run_until_complete(create())
+    return asyncio.run(create())
 
 
 @pytest.fixture
@@ -177,7 +177,7 @@ class TestResearchWorkflowComplete:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert state.selected_ticker == "AAPL"
             assert state.ticker_info["symbol"] == "AAPL"
@@ -208,7 +208,7 @@ class TestResearchWorkflowComplete:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert "Could not find ticker" in state.error_message
             assert state.is_loading is False
@@ -234,7 +234,7 @@ class TestResearchWorkflowComplete:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert len(state.recent_news) == 1
             assert state.recent_news[0].sentiment_label == "positive"
@@ -261,7 +261,7 @@ class TestResearchWorkflowComplete:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert "overall" in state.quality_check
             assert "flags" in state.quality_check
@@ -287,7 +287,7 @@ class TestResearchWorkflowComplete:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert len(state.price_history) == 3
             assert "date" in state.price_history[0]
@@ -319,7 +319,7 @@ class TestResearchWorkflowEdgeCases:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert state.selected_ticker == "AAPL"
             assert state.is_loading is False
@@ -350,7 +350,7 @@ class TestResearchWorkflowEdgeCases:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert state.selected_ticker == "AAPL"
             assert len(state.recent_news) == 0
@@ -377,7 +377,7 @@ class TestResearchWorkflowEdgeCases:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert state.selected_ticker == "AAPL"
             mock_market_data_service.get_ticker_info_async.assert_called_with("AAPL")
@@ -406,11 +406,11 @@ class TestResearchWorkflowStateManagement:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert state.selected_ticker == "AAPL"
 
-            asyncio.get_event_loop().run_until_complete(state.clear_research())
+            asyncio.run(state.clear_research())
 
             assert state.ticker_input == ""
             assert state.selected_ticker == ""
@@ -439,7 +439,7 @@ class TestResearchWorkflowStateManagement:
                 async for _ in state.research_ticker():
                     pass
 
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert state.selected_ticker == "AAPL"
 
@@ -461,7 +461,7 @@ class TestResearchWorkflowStateManagement:
             mock_market_data_service.get_ticker_info_async = AsyncMock(return_value=mock_info_msft)
 
             state.ticker_input = "MSFT"
-            asyncio.get_event_loop().run_until_complete(run_research())
+            asyncio.run(run_research())
 
             assert state.selected_ticker == "MSFT"
             assert state.ticker_info["symbol"] == "MSFT"
