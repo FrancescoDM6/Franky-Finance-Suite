@@ -47,6 +47,22 @@ def on_load():
     services.db.initialize_schema()
 
 
+async def _purge_expired_cache():
+    """Remove expired market data cache rows once at backend startup.
+
+    Without this, expired entries accumulate in DuckDB indefinitely
+    (CacheService.clear_expired has no other caller).
+    """
+    from .core.async_utils import run_sync
+    from .services import services
+
+    try:
+        await run_sync(services.cache.clear_expired)
+        logger.info("Purged expired market data cache entries")
+    except Exception as e:
+        logger.warning("Startup cache purge failed: %s", e)
+
+
 app = rx.App(
     theme=rx.theme(
         accent_color="teal",
@@ -56,3 +72,4 @@ app = rx.App(
     stylesheets=["/styles.css"],
     api_transformer=health_api,
 )
+app.register_lifespan_task(_purge_expired_cache)

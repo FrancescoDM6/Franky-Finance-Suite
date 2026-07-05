@@ -31,7 +31,12 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
 
         if self.selected_ticker:
             user_ctx = await self.get_state(UserContextState)
+            if self.selected_ticker in user_ctx.watchlist:
+                return rx.toast.info(
+                    f"{self.selected_ticker} is already in your watchlist"
+                )
             user_ctx.add_to_watchlist(self.selected_ticker)
+            return rx.toast.success(f"Added {self.selected_ticker} to watchlist")
 
     async def set_chart_period(self, period: str):
         """Set chart period and refresh chart data."""
@@ -83,12 +88,20 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
             raw_input.split(" - ")[0] if " - " in raw_input else raw_input
         )
 
+        # Supersede any in-flight research run: each run captures its
+        # generation and stops writing state once a newer run has started.
+        self._search_generation += 1
+        generation = self._search_generation
+
         try:
             from ...services import services
 
             metrics.active_research_sessions.inc()
 
             info = await services.market_data.get_ticker_info_async(ticker_to_lookup)
+
+            if generation != self._search_generation:
+                return  # Superseded by a newer search
 
             if not info:
                 self.error_message = f"Could not find ticker: {ticker_to_lookup}. Try using the stock symbol (e.g., NFLX for Netflix)."
@@ -141,6 +154,9 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
             range_data = range_task.result()
             news_items = news_task.result()
 
+            if generation != self._search_generation:
+                return  # Superseded by a newer search
+
             if analyst_details:
                 self.analyst_data["recommendation_counts"] = analyst_details.get(
                     "recommendation_counts", {}
@@ -172,6 +188,9 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
                 sentiment_scores = await run_sync(
                     services.sentiment.score_batch, texts_to_analyze
                 )
+
+            if generation != self._search_generation:
+                return  # Superseded by a newer search
 
             self.recent_news = []
             for i, item in enumerate(news_items or []):
@@ -212,6 +231,9 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
                 tg.create_task(self._fetch_price_history())
             yield
 
+            if generation != self._search_generation:
+                return  # Superseded by a newer search
+
             self.loading_stage = "Generating AI Synthesis..."
             yield
 
@@ -223,14 +245,17 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
             yield
 
         except Exception as e:
-            self.error_message = f"Error: {str(e)}"
+            if generation == self._search_generation:
+                self.error_message = f"Error: {str(e)}"
             record_error("research", type(e).__name__)
         finally:
             duration = time.perf_counter() - start_time
             metrics.research_duration.labels(ticker=ticker_to_lookup).observe(duration)
             metrics.active_research_sessions.dec()
-            self.is_loading = False
-            self.loading_stage = ""
+            # A superseded run must not clear the newer run's loading state
+            if generation == self._search_generation:
+                self.is_loading = False
+                self.loading_stage = ""
 
     async def _generate_synthesis(
         self,
@@ -260,8 +285,10 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
             )
             return
 
+        generation = self._search_generation
         try:
             self.is_generating_synthesis = True
+            self.synthesis_error = ""
 
             # Get user profile
             user_ctx = await self.get_state(UserContextState)
@@ -330,6 +357,9 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
                 context, force_refresh=force_refresh
             )
 
+            if generation != self._search_generation:
+                return  # Superseded by a newer search; discard this synthesis
+
             if result.success:
                 self.llm_synthesis = result.content
             else:
@@ -339,10 +369,13 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
             logger.error(
                 "Error generating synthesis for %s: %s", self.selected_ticker, e
             )
-            self.llm_synthesis = ""
-            self.synthesis_error = "AI analysis failed: please try again"
+            if generation == self._search_generation:
+                self.llm_synthesis = ""
+                self.synthesis_error = "AI analysis failed: please try again"
         finally:
-            self.is_generating_synthesis = False
+            # A superseded run must not clear the newer run's spinner
+            if generation == self._search_generation:
+                self.is_generating_synthesis = False
 
     async def refresh_synthesis(self):
         """Manually refresh the AI synthesis using the current options snapshot."""
@@ -360,9 +393,11 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
     async def _apply_profile_insights(self):
         """Generate profile-specific insights based on active user profile."""
         from ...state.user_context import UserContextState
-        from .profiles import get_conservative_insights, get_aggressive_insights, get_standard_insights
+        from .profiles import get_insights
 
         try:
+            self.profile_insights_error = ""
+
             # Get user context state to find active profile
             user_ctx = await self.get_state(UserContextState)
             profile = user_ctx.active_profile.lower()
@@ -372,19 +407,13 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
                 {"title": n.title, "publisher": n.publisher} for n in self.recent_news
             ]
 
-            if profile == "conservative":
-                self.profile_insights = get_conservative_insights(
-                    self.ticker_info, self.price_range, self.analyst_data
-                )
-            elif profile == "aggressive":
-                self.profile_insights = get_aggressive_insights(
-                    self.ticker_info, self.price_range, news_dicts, self.analyst_data
-                )
-            else:
-                # Standard or default
-                self.profile_insights = get_standard_insights(
-                    self.ticker_info, self.price_range, news_dicts, self.analyst_data
-                )
+            self.profile_insights = get_insights(
+                profile,
+                self.ticker_info,
+                self.price_range,
+                news_dicts,
+                self.analyst_data,
+            )
         except Exception as e:
             logger.error("Error generating profile insights: %s", e)
             self.profile_insights = []
@@ -398,7 +427,7 @@ class ResearchWorkflowMixin(rx.State, mixin=True):
         try:
             from ...services import services
 
-            df = services.market_data.get_price_history(
+            df = await services.market_data.get_price_history_async(
                 self.selected_ticker, period=self.chart_period, interval="1d"
             )
 

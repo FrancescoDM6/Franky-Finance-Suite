@@ -1,6 +1,7 @@
 """Price range card component."""
 
 import reflex as rx
+from ....components.ui import card_header
 from ..state import ResearchState
 
 
@@ -8,18 +9,15 @@ def range_card() -> rx.Component:
     """Price range visualization card."""
     return rx.card(
         rx.vstack(
-            rx.hstack(
-                rx.heading("Price Range", size="4"),
-                rx.badge(ResearchState.range_period, variant="soft"),
-                rx.spacer(),
+            card_header(
+                "Price Range",
                 rx.badge(
                     ResearchState.range_position_label,
                     color_scheme=ResearchState.range_position_color,
                     variant="soft",
                 ),
-                width="100%",
+                left=rx.badge(ResearchState.range_period, variant="soft"),
             ),
-            rx.divider(),
             # Range stats
             rx.grid(
                 rx.vstack(

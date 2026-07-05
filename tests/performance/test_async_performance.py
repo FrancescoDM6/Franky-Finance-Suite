@@ -10,7 +10,6 @@ Run with: pytest tests/performance/ -v -m performance
 
 import asyncio
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -93,7 +92,6 @@ class TestAsyncUtilsPerformance:
         assert len(sequential_results) == num_operations
         assert len(concurrent_results) == num_operations
 
-        expected_sequential = num_operations * delay_per_op
         speedup = sequential_time / concurrent_time
 
         assert concurrent_time < sequential_time, (

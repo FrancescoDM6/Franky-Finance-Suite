@@ -1,4 +1,3 @@
-from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -50,8 +49,6 @@ class TestPortfolioStatePositionCalculations:
 
             state = PortfolioState()
             state.positions = []
-
-            expected_value = (100 * 175.50) + (50 * 175.50)
 
             from phinan.modules.portfolio.state import PortfolioPosition
 

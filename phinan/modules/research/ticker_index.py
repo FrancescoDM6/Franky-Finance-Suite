@@ -1,4 +1,16 @@
-"""Pre-built ticker index for fast Research autocomplete."""
+"""Pre-built ticker index for fast ticker autocomplete.
+
+Shared by the Research and Portfolio modules; call ensure_loaded() before
+searching. The backing data lives in research/data/tickers.json.
+"""
+
+import json
+import logging
+import os
+import threading
+
+logger = logging.getLogger(__name__)
+
 
 class TickerIndex:
     """Pre-built index for fast ticker search.
@@ -13,6 +25,26 @@ class TickerIndex:
         self._symbols_sorted: list[str] = []
         self._name_words: dict[str, list[dict]] = {}  # word -> list of tickers
         self._initialized = False
+        self._load_lock = threading.Lock()
+
+    def ensure_loaded(self) -> None:
+        """Load tickers.json and build the index once per process."""
+        if self._initialized:
+            return
+        with self._load_lock:
+            if self._initialized:
+                return
+            try:
+                data_path = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "data",
+                    "tickers.json",
+                )
+                with open(data_path, "r") as f:
+                    tickers_data = json.load(f)
+                self.build(tickers_data)
+            except Exception as e:
+                logger.error("Error loading tickers: %s", e)
 
     def build(self, tickers: list[dict]) -> None:
         """Build search indices from ticker list."""

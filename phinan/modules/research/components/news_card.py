@@ -1,6 +1,7 @@
 """News card component."""
 
 import reflex as rx
+from ....components.ui import card_header
 from ..state import ResearchState
 
 
@@ -79,16 +80,13 @@ def news_card() -> rx.Component:
     """Recent news card with sentiment analysis."""
     return rx.card(
         rx.vstack(
-            rx.hstack(
-                rx.heading("Recent News", size="4"),
-                rx.spacer(),
+            card_header(
+                "Recent News",
                 rx.badge(
                     ResearchState.recent_news.length(),
                     variant="soft",
                 ),
-                width="100%",
             ),
-            rx.divider(),
             aggregate_sentiment_header(),
             rx.cond(
                 ResearchState.recent_news.length() > 0,

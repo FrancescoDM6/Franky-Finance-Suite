@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -156,7 +155,7 @@ class TestResearchStateAsyncWorkflow:
 
             gen = state.research_ticker()
 
-            asyncio.get_event_loop().run_until_complete(gen.__anext__())
+            asyncio.run(gen.__anext__())
 
             assert state.is_loading is True
             assert state.loading_stage != ""
@@ -173,7 +172,7 @@ class TestResearchStateAsyncWorkflow:
             gen = state.research_ticker()
 
             try:
-                asyncio.get_event_loop().run_until_complete(gen.__anext__())
+                asyncio.run(gen.__anext__())
             except StopAsyncIteration:
                 pass
 
@@ -197,13 +196,11 @@ class TestResearchStateAsyncWorkflow:
 
             gen = state.research_ticker()
 
-            results = []
-
             async def exhaust_gen():
                 async for _ in gen:
                     pass
 
-            asyncio.get_event_loop().run_until_complete(exhaust_gen())
+            asyncio.run(exhaust_gen())
 
             assert "Could not find ticker" in state.error_message
             assert state.is_loading is False
@@ -448,7 +445,7 @@ class TestResearchStateClearResearch:
                 return state, options_state, volatility_state
 
             state, options_state, volatility_state = (
-                asyncio.get_event_loop().run_until_complete(run_clear())
+                asyncio.run(run_clear())
             )
 
             assert state.ticker_input == ""

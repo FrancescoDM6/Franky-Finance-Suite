@@ -62,13 +62,14 @@ async def run_sync_batch(*operations: tuple) -> list[Any]:
     """Run multiple synchronous operations concurrently.
 
     Each operation is a tuple of (func, *args). All operations run in parallel
-    using TaskGroup for structured concurrency with fail-fast behavior.
+    using TaskGroup. A failing operation does not cancel its siblings; its
+    result slot is None and the failure is logged.
 
     Args:
         *operations: Tuples of (callable, *args) to execute
 
     Returns:
-        List of results in same order as operations
+        List of results in same order as operations (None for failures)
 
     Example:
         ticker_info, news, price_range = await run_sync_batch(
@@ -80,18 +81,21 @@ async def run_sync_batch(*operations: tuple) -> list[Any]:
     results = [None] * len(operations)
 
     async def _run_and_store(idx: int, func, *args):
-        results[idx] = await run_sync(func, *args)
+        try:
+            results[idx] = await run_sync(func, *args)
+        except Exception as e:
+            func_name = getattr(func, "__qualname__", repr(func))
+            logger.warning(
+                "run_sync_batch operation %d (%s) failed: %s", idx, func_name, e
+            )
 
-    try:
-        async with asyncio.TaskGroup() as tg:
-            for i, op in enumerate(operations):
-                if not op:
-                    continue
-                func = op[0]
-                args = op[1:] if len(op) > 1 else ()
-                tg.create_task(_run_and_store(i, func, *args))
-    except* Exception:
-        pass  # Return partial results on error
+    async with asyncio.TaskGroup() as tg:
+        for i, op in enumerate(operations):
+            if not op:
+                continue
+            func = op[0]
+            args = op[1:] if len(op) > 1 else ()
+            tg.create_task(_run_and_store(i, func, *args))
 
     return results
 

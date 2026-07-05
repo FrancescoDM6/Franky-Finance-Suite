@@ -60,6 +60,10 @@ class ResearchState(
     loading_stage: str = ""
     error_message: str = ""
 
+    # Backend-only: incremented on each research run so an in-flight run can
+    # detect it was superseded by a newer search and stop writing state.
+    _search_generation: int = 0
+
     # Results (dicts for Reflex serialization)
     ticker_info: dict[str, Any] = {}
     quality_check: dict[str, Any] = {}
@@ -90,8 +94,6 @@ class ResearchState(
         dict[str, Any]
     ] = []  # [{date, open, high, low, close, volume}, ...]
 
-    # Ticker Validation Data (kept for backwards compatibility, but index is preferred)
-    tickers: list[dict] = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,31 +101,8 @@ class ResearchState(
             self._load_tickers()
 
     def _load_tickers(self):
-        """Load tickers from JSON file and build search index."""
-        import json
-        import os
-
-        # Use global index if already initialized (much faster)
-        if ticker_index.is_initialized:
-            return
-
-        try:
-            # Construct path relative to this file
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            data_path = os.path.join(current_dir, "data", "tickers.json")
-
-            with open(data_path, "r") as f:
-                tickers_data = json.load(f)
-
-            # Build the global search index (O(n) once, then O(1) searches)
-            ticker_index.build(tickers_data)
-
-            # Keep reference for backwards compatibility
-            self.tickers = tickers_data
-
-        except Exception as e:
-            logger.error("Error loading tickers: %s", e)
-            self.tickers = []
+        """Ensure the shared ticker search index is loaded."""
+        ticker_index.ensure_loaded()
 
     def set_selected_tab(self, tab: str):
         """Set the selected tab."""
@@ -132,6 +111,7 @@ class ResearchState(
     def set_ticker_input(self, value: str):
         """Update ticker input."""
         self.ticker_input = value.upper()
+        self.error_message = ""
 
     def search_ticker(self, ticker: str):
         """Set pending ticker and redirect to research page.

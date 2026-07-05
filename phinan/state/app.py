@@ -12,7 +12,7 @@ class AppState(rx.State):
 
     Contains:
     - Navigation state
-    - UI preferences (sidebar, assistant visibility)
+    - UI preferences (sidebar)
     - User identification
     """
 
@@ -21,7 +21,6 @@ class AppState(rx.State):
 
     # UI state
     sidebar_open: bool = False
-    assistant_visible: bool = True
 
     # User (simple for now - can expand to multi-user later)
     user_id: str = "default_user"
@@ -29,10 +28,6 @@ class AppState(rx.State):
     def toggle_sidebar(self):
         """Toggle sidebar visibility."""
         self.sidebar_open = not self.sidebar_open
-
-    def toggle_assistant(self):
-        """Toggle assistant panel visibility."""
-        self.assistant_visible = not self.assistant_visible
 
     def set_page(self, page: str):
         """Set current page for navigation highlighting."""

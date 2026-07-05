@@ -1,6 +1,7 @@
 """Analyst data card component."""
 
 import reflex as rx
+from ....components.ui import card_header
 from ..state import ResearchState
 
 
@@ -135,9 +136,8 @@ def analyst_card() -> rx.Component:
     """Analyst consensus card with detailed breakdown."""
     return rx.card(
         rx.vstack(
-            rx.hstack(
-                rx.heading("Analyst Consensus", size="4"),
-                rx.spacer(),
+            card_header(
+                "Analyst Consensus",
                 rx.cond(
                     ResearchState.analyst_data.get("num_analysts"),
                     rx.badge(
@@ -147,10 +147,7 @@ def analyst_card() -> rx.Component:
                     ),
                     rx.fragment(),
                 ),
-                width="100%",
-                align="center",
             ),
-            rx.divider(),
             # Summary row
             rx.hstack(
                 rx.vstack(

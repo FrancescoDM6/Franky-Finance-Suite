@@ -8,6 +8,7 @@ from typing import List, Optional
 
 import reflex as rx
 
+from ...core.async_utils import run_sync
 from ...models.structured_note import StructuredNote, NoteValuation
 from ...services import services
 
@@ -52,7 +53,7 @@ class NoteState(rx.State):
             
             # 1. Parse PDF
             # Note: We pass bytes content to the service
-            text = services.pdf_parser.extract_text(content)
+            text = await run_sync(services.pdf_parser.extract_text, content)
             if not text:
                 raise ValueError("Could not extract text from PDF")
                 
@@ -61,7 +62,7 @@ class NoteState(rx.State):
             yield
                 
             # 2. Extract Structure using LLM
-            note = services.pdf_parser.parse_term_sheet(text)
+            note = await run_sync(services.pdf_parser.parse_term_sheet, text)
             if not note:
                 raise ValueError("Could not parse term sheet parameters")
                 
@@ -72,7 +73,9 @@ class NoteState(rx.State):
             yield
             
             # 3. Valuation
-            valuation = services.structured_products.calculate_fair_value(note)
+            valuation = await run_sync(
+                services.structured_products.calculate_fair_value, note
+            )
             self.valuation = valuation
             
             self.upload_progress = 100

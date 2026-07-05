@@ -92,8 +92,13 @@ class SynthesisService:
             "news_context": context.news_context,
             "options_exp": context.options_expiration,
             "analysis_date": context.analysis_date,
-            # Round price to nearest dollar to avoid noise from minor fluctuations
-            "price": round(context.ticker_info.get("current_price", 0) or 0),
+            # Price at 3 significant digits: a ~0.5-1% relative move
+            # invalidates the cache at any price scale, while sub-0.5% noise
+            # does not. Staleness in time is already bounded by the 1-hour
+            # cache TTL, so no time bucket is needed here.
+            "price": float(
+                f"{(context.ticker_info.get('current_price', 0) or 0):.3g}"
+            ),
             # Include position info if present
             "position": None,
         }

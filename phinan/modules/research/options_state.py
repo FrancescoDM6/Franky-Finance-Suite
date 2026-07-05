@@ -67,7 +67,7 @@ class OptionsState(ResearchState):
             user_ctx = await self.get_state(UserContextState)
 
             # Fetch all expirations
-            expirations = services.market_data.get_options_expirations(
+            expirations = await services.market_data.get_options_expirations_async(
                 self.selected_ticker
             )
 
@@ -177,7 +177,7 @@ class OptionsState(ResearchState):
                 chain = cached_chain
             else:
                 # Fetch fresh data
-                chain = services.market_data.get_options_chain(
+                chain = await services.market_data.get_options_chain_async(
                     self.selected_ticker, self.selected_expiration
                 )
                 # Cache it (LRUCache handles eviction automatically)

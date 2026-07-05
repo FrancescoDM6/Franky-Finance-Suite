@@ -1,6 +1,6 @@
 """Unit tests for the TF-IDF + LR SentimentService."""
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -158,7 +158,7 @@ class TestSentimentServiceAggregate:
 @pytest.mark.unit
 class TestSentimentServiceModelLoading:
     def test_load_model_skips_when_disabled(self, disabled_sentiment_service):
-        with patch("phinan.services.sentiment._GLOBAL_MODEL", None) as mock_global, \
+        with patch("phinan.services.sentiment._GLOBAL_MODEL", None), \
              patch("phinan.services.sentiment._GLOBAL_MODEL_LOADED", False):
             disabled_sentiment_service._load_model()
             

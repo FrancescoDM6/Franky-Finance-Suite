@@ -3,9 +3,7 @@
 Handles portfolio positions stored in DuckDB.
 """
 
-import json
 import logging
-import os
 from datetime import date
 from typing import Optional
 
@@ -14,6 +12,7 @@ from pydantic import BaseModel
 
 from ...core.async_utils import run_sync
 from ...services import services
+from ..research.ticker_index import ticker_index
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +55,7 @@ class PortfolioState(rx.State):
     form_purchase_date: str = ""
     form_notes: str = ""
 
-    # Ticker autocomplete data
-    tickers: list[dict] = []
+    # Ticker autocomplete UI state (data lives in the shared ticker_index)
     show_autocomplete: bool = False
 
     # UI state
@@ -71,41 +69,15 @@ class PortfolioState(rx.State):
     show_delete_confirm: bool = False
 
     def load_tickers(self):
-        """Load ticker data for autocomplete."""
-        if self.tickers:
-            return  # Already loaded
-        try:
-            # Use same ticker data as research module
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            data_path = os.path.join(
-                current_dir, "..", "research", "data", "tickers.json"
-            )
-
-            with open(data_path, "r") as f:
-                self.tickers = json.load(f)
-        except Exception as e:
-            logger.error("Error loading tickers for portfolio: %s", e)
-            self.tickers = []
+        """Ensure the shared ticker search index is loaded."""
+        ticker_index.ensure_loaded()
 
     @rx.var
     def ticker_options(self) -> list[str]:
         """Filter tickers based on form input."""
-        if not self.form_ticker or len(self.form_ticker) < 1:
+        if not self.form_ticker:
             return []
-
-        search_term = self.form_ticker.upper()
-        options = []
-
-        for t in self.tickers:
-            if (
-                search_term in t.get("symbol", "")
-                or search_term in t.get("name", "").upper()
-            ):
-                options.append(f"{t['symbol']} - {t['name']}")
-                if len(options) >= 8:
-                    break
-
-        return options
+        return ticker_index.search(self.form_ticker, limit=8)
 
     def set_form_ticker(self, value: str):
         """Handle ticker input change."""
@@ -126,10 +98,12 @@ class PortfolioState(rx.State):
     def set_form_quantity(self, value: str):
         """Set form quantity."""
         self.form_quantity = value
+        self.error_message = ""
 
     def set_form_cost_basis(self, value: str):
         """Set form cost basis."""
         self.form_cost_basis = value
+        self.error_message = ""
 
     def set_form_purchase_date(self, value: str):
         """Set form purchase date."""
@@ -348,6 +322,7 @@ class PortfolioState(rx.State):
             self._clear_form()
             self.show_add_form = False
             await self.load_positions()
+            return rx.toast.success(f"Added {ticker} to portfolio")
 
         except Exception as e:
             self.error_message = f"Error adding position: {str(e)}"
@@ -386,7 +361,10 @@ class PortfolioState(rx.State):
     async def execute_delete(self):
         """Execute the confirmed deletion."""
         if self.delete_confirm_position_id > 0:
+            ticker = self.delete_confirm_ticker
             await self.delete_position(self.delete_confirm_position_id)
+            if not self.error_message:
+                return rx.toast.success(f"Removed {ticker} from portfolio")
 
     def get_position_for_ticker(self, ticker: str) -> Optional[PortfolioPosition]:
         """Get position for a specific ticker (for Research integration)."""

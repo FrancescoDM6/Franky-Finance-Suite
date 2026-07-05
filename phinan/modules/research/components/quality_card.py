@@ -1,6 +1,7 @@
 """Quality check card component."""
 
 import reflex as rx
+from ....components.ui import card_header
 from ..state import ResearchState
 
 
@@ -18,9 +19,8 @@ def quality_card() -> rx.Component:
     """Quality check card showing fundamental assessment."""
     return rx.card(
         rx.vstack(
-            rx.hstack(
-                rx.heading("Quality Check", size="4"),
-                rx.spacer(),
+            card_header(
+                "Quality Check",
                 rx.badge(
                     ResearchState.quality_overall,
                     color_scheme=rx.cond(
@@ -28,9 +28,7 @@ def quality_card() -> rx.Component:
                     ),
                     variant="soft",
                 ),
-                width="100%",
             ),
-            rx.divider(),
             rx.vstack(
                 metric_row("Industry", ResearchState.quality_check.get("industry", "N/A")),
                 metric_row("P/E Ratio", ResearchState.fmt_pe_ratio),

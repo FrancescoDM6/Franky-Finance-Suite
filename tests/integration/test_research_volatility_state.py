@@ -32,7 +32,7 @@ class TestVolatilityState:
             await volatility_state._fetch_volatility_data(options_atm_iv=0.0)
             return volatility_state
 
-        state = asyncio.get_event_loop().run_until_complete(run_test())
+        state = asyncio.run(run_test())
 
         assert state.volatility_available is False
         assert state.volatility_error == "ATM IV not available"
@@ -52,7 +52,9 @@ class TestVolatilityState:
 
         with patch("phinan.services.services") as services:
             services.volatility.health_check.return_value = True
-            services.market_data.get_price_history.return_value = history
+            services.market_data.get_price_history_async = AsyncMock(
+                return_value=history
+            )
             services.volatility.compare_to_implied_vol.return_value = result
 
             async def run_test():
@@ -64,7 +66,7 @@ class TestVolatilityState:
                 await volatility_state._fetch_volatility_data(options_atm_iv=0.30)
                 return volatility_state
 
-            state = asyncio.get_event_loop().run_until_complete(run_test())
+            state = asyncio.run(run_test())
 
         assert state.volatility_available is True
         assert state.volatility_implied_vol == 0.30
@@ -100,5 +102,5 @@ class TestVolatilityState:
 
             return volatility_state
 
-        state = asyncio.get_event_loop().run_until_complete(change_horizon())
+        state = asyncio.run(change_horizon())
         assert state.volatility_horizon == "63"

@@ -91,16 +91,18 @@ phinan/
 ├── phinan.py              # Main app entry point
 ├── config/
 │   ├── __init__.py
-│   └── settings.py        # Pydantic settings with env vars
+│   ├── settings.py        # Pydantic settings with env vars
+│   └── profiles.py        # User profile definitions (single source of truth)
 ├── core/
 │   ├── __init__.py
-│   └── database.py        # DuckDB manager with thread-safe connections
+│   ├── database.py        # DuckDB manager with thread-safe connections
+│   └── async_utils.py     # run_sync/run_sync_batch (event-loop-safe I/O)
 ├── api/
 │   └── health.py         # FastAPI health + metrics endpoints
 ├── services/             # Lazy-loaded service registry (see services/__init__.py)
 │   ├── __init__.py        # ServiceRegistry
-│   ├── llm.py             # Gemini (cloud) + Ollama (local) wrapper
-│   ├── market_data.py     # OpenBB + yfinance adapter
+│   ├── llm/               # LLMService + GeminiBackend + OllamaBackend
+│   ├── market_data/       # MarketDataService + OpenBB/yfinance providers
 │   ├── sentiment.py       # FinBERT
 │   ├── volatility.py      # GARCH forecasting
 │   ├── embeddings.py      # sentence-transformers
@@ -124,7 +126,8 @@ phinan/
     │   ├── __init__.py
     │   ├── page.py        # Research page
     │   ├── state.py       # ResearchState
-    │   ├── profiles.py    # User profiles (Papi/Tio/Franky)
+    │   ├── workflow.py    # Async research orchestration mixin
+    │   ├── profiles.py    # Profile-aware insights (defs in config/profiles.py)
     │   ├── prompts.py     # LLM prompt templates
     │   └── components/    # Quality card, range card, etc.
     ├── portfolio/         # Portfolio tracking (page + state)
@@ -133,8 +136,8 @@ phinan/
 ```
 
 NOTE: A persistent chat assistant is the design intent (see Project Overview),
-but it is not yet wired up. There is no `components/assistant/` package; only an
-`AppState.assistant_visible` toggle exists today.
+but it is not yet wired up. There is no `components/assistant/` package and no
+assistant-related state yet.
 
 ## Key Design Principles
 
@@ -213,8 +216,7 @@ Three trading profiles with different research emphasis:
 - Sentiment (FinBERT), volatility (GARCH), embeddings services
 
 **Planned / not yet wired up:**
-- Persistent chat assistant with tool calling (only an `assistant_visible`
-  toggle exists today)
+- Persistent chat assistant with tool calling (not started)
 - Notes module, Options module
 
 **Next Steps:**

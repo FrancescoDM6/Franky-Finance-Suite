@@ -6,6 +6,7 @@ with user-selectable forecast horizon.
 
 import reflex as rx
 
+from ....components.ui import card_header
 from ..volatility_state import VolatilityState
 
 
@@ -150,19 +151,11 @@ def volatility_card() -> rx.Component:
     return rx.card(
         rx.vstack(
             # Header with horizon selector
-            rx.hstack(
-                rx.hstack(
-                    rx.icon("activity", size=18),
-                    rx.heading("Volatility Analysis", size="4"),
-                    spacing="2",
-                    align="center",
-                ),
-                rx.spacer(),
+            card_header(
+                "Volatility Analysis",
                 horizon_selector(),
-                width="100%",
-                align="center",
+                icon="activity",
             ),
-            rx.divider(),
             # Loading state
             rx.cond(
                 VolatilityState.volatility_loading,
