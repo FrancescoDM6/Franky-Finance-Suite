@@ -11,11 +11,7 @@ from datetime import date
 from typing import Optional
 
 from ...config.settings import settings
-from ...models.structured_note import (
-    NoteAnalysis,
-    NoteValuation,
-    StructuredNote,
-)
+from ...models.structured_note import NoteAnalysis, StructuredNote
 from .engine import MarketInputs, simulate_note
 
 logger = logging.getLogger(__name__)
@@ -158,36 +154,3 @@ class StructuredProductService:
                 diff * 10_000,
             )
 
-    def calculate_fair_value(self, note: StructuredNote) -> NoteValuation:
-        """TEMPORARY shim keeping the pre-rewrite notes UI working.
-
-        Maps a Monte Carlo analysis onto the legacy NoteValuation shape.
-        Removed in phase 2 together with NoteValuation.
-        """
-        try:
-            market = self.build_market_inputs(note)
-        except Exception as e:
-            logger.warning(
-                "Market data unavailable for shim valuation, using "
-                "fallback inputs: %s",
-                e,
-            )
-            sp = settings.structured_products
-            market = MarketInputs(
-                spots={t: 1.0 for t in note.underlying_tickers},
-                vols={t: FALLBACK_VOL for t in note.underlying_tickers},
-                risk_free_rate=sp.risk_free_rate,
-                credit_spread=sp.default_credit_spread,
-                correlation=sp.default_correlation,
-            )
-
-        simulation, _ = simulate_note(note, market, n_paths=4_000)
-        return NoteValuation(
-            fair_value_pct=simulation.fair_value_pct,
-            bond_floor_pct=simulation.bond_floor_pct,
-            option_value_pct=simulation.option_value_pct,
-            implied_fee_pct=simulation.implied_fee_pct,
-            break_even_pct=round(1.0 + simulation.percentiles.get("p50", 0.0), 4),
-            probability_of_loss=simulation.prob_loss,
-            probability_of_autocall=simulation.prob_autocall,
-        )

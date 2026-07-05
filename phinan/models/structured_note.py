@@ -60,21 +60,6 @@ class StructuredNote(BaseModel):
     estimated_value: Optional[float] = None
     implied_fee: Optional[float] = None
     
-class NoteValuation(BaseModel):
-    """Valuation result for a note.
-
-    DEPRECATED: superseded by SimulationResult; removed once the notes
-    module rewrite lands (phase 2).
-    """
-    fair_value_pct: float
-    bond_floor_pct: float
-    option_value_pct: float
-    implied_fee_pct: float
-    break_even_pct: float
-    probability_of_loss: float
-    probability_of_autocall: float
-
-
 class AutocallProbability(BaseModel):
     """Probability of autocall at a single observation date."""
 
