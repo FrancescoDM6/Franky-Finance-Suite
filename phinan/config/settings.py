@@ -109,6 +109,41 @@ class GeminiSettings(BaseSettings):
     )
 
 
+class StructuredProductsSettings(BaseSettings):
+    """Structured note valuation configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="PHINAN_STRUCTURED_PRODUCTS_")
+
+    risk_free_rate: float = Field(
+        default=0.045,
+        description="Annualized risk-free rate used for discounting",
+    )
+    default_credit_spread: float = Field(
+        default=0.01,
+        description="Issuer credit spread over risk-free (generic A-rated bank)",
+    )
+    default_correlation: float = Field(
+        default=0.6,
+        description="Pairwise correlation assumed for multi-underlying baskets",
+    )
+    default_n_paths: int = Field(
+        default=10_000,
+        description="Monte Carlo paths per simulation",
+    )
+    max_paths: int = Field(
+        default=50_000,
+        description="Hard cap on Monte Carlo paths",
+    )
+    histogram_buckets: int = Field(
+        default=21,
+        description="Buckets in the outcome histogram sent to the UI",
+    )
+    vol_lookback_period: str = Field(
+        default="1y",
+        description="Price history period used to estimate realized volatility",
+    )
+
+
 class AssistantSettings(BaseSettings):
     """Assistant configuration."""
 
@@ -145,6 +180,9 @@ class Settings(BaseSettings):
     gemini: GeminiSettings = Field(default_factory=GeminiSettings)
     ai_services: AIServicesSettings = Field(default_factory=AIServicesSettings)
     market_data: MarketDataSettings = Field(default_factory=MarketDataSettings)
+    structured_products: StructuredProductsSettings = Field(
+        default_factory=StructuredProductsSettings
+    )
     assistant: AssistantSettings = Field(default_factory=AssistantSettings)
 
 
