@@ -131,7 +131,7 @@ phinan/
     │   ├── prompts.py     # LLM prompt templates
     │   └── components/    # Quality card, range card, etc.
     ├── portfolio/         # Portfolio tracking (page + state)
-    ├── notes/             # Structured note analyzer (stub)
+    ├── notes/             # Structured note analyzer (MC valuation + persistence)
     └── options/           # Options trading (stub)
 ```
 
@@ -210,6 +210,13 @@ Three trading profiles with different research emphasis:
   - Positions tracking with live P/L
   - Integration with Research context
   - CRUD operations
+- Notes module (structured note analyzer):
+  - PDF term-sheet upload -> LLM extraction -> editable terms form
+    (analysis never auto-runs; user corrects terms first)
+  - Monte Carlo valuation engine (worst-of basket GBM, autocall/memory
+    coupons, European/American barriers) in services/structured_products/
+  - Fee breakdown, risk scenarios, outcome histogram, alternatives table
+  - Persisted analyses (structured_notes table) + LLM narrative
 - Home dashboard with the LLM Daily Brief
 
 **Implemented but inactive (disabled by default):**
@@ -217,7 +224,7 @@ Three trading profiles with different research emphasis:
 
 **Planned / not yet wired up:**
 - Persistent chat assistant with tool calling (not started)
-- Notes module, Options module
+- Options module
 
 **Next Steps:**
 1. **Assistant:** Wire up the persistent chat interface with tool calling.
