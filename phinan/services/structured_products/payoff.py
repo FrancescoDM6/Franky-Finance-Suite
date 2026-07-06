@@ -260,11 +260,12 @@ def evaluate_paths(
     df_T = float(np.exp(-params.discount_rate * final.t_years))
 
     breached = np.zeros(n_paths, dtype=bool)
-    if params.capital_protection < 1.0 and params.protection_barrier is not None:
-        if params.barrier_type == "American":
-            breached = running_min < params.protection_barrier
+    if params.capital_protection < 1.0:
+        effective_barrier = params.protection_barrier if params.protection_barrier is not None else params.strike
+        if params.barrier_type == 'American' and params.protection_barrier is not None:
+            breached = running_min < effective_barrier
         else:
-            breached = worst_T < params.protection_barrier
+            breached = worst_T < effective_barrier
     breached &= alive
 
     downside = np.maximum(
