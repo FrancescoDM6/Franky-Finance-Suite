@@ -141,7 +141,7 @@ def simulate_note(
         obs_step_idx = np.arange(n_obs)
 
     dts = np.diff(np.concatenate([[0.0], step_times]))
-    dts = np.maximum(dts, MIN_T_YEARS / 365.0)
+    dts = np.maximum(dts, MIN_T_YEARS)
 
     # Precompute per-step drift/diffusion terms (n_steps, n_assets)
     drift = (r - divs - 0.5 * vols**2)[None, :] * dts[:, None]
