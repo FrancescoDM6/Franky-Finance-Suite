@@ -8,20 +8,14 @@ import reflex as rx
 
 from ...components.layout import main_layout
 from ...state.user_context import UserContextState
-from .components import chain_card, preview_card, trade_form, trades_section
+from .components import (
+    chain_card,
+    performance_card,
+    preview_card,
+    trade_form,
+    trades_section,
+)
 from .state import OptionsTradingState
-
-
-def _performance_placeholder() -> rx.Component:
-    return rx.center(
-        rx.text(
-            "Performance metrics appear once you close trades.",
-            size="2",
-            color="var(--pfs-text-muted)",
-        ),
-        padding="32px",
-        width="100%",
-    )
 
 
 def options_content() -> rx.Component:
@@ -50,7 +44,7 @@ def options_content() -> rx.Component:
             width="100%",
             align="start",
         ),
-        trades_section(_performance_placeholder()),
+        trades_section(performance_card()),
         spacing="4",
         width="100%",
         max_width="1200px",
