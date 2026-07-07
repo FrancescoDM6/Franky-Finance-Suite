@@ -132,7 +132,7 @@ phinan/
     │   └── components/    # Quality card, range card, etc.
     ├── portfolio/         # Portfolio tracking (page + state)
     ├── notes/             # Structured note analyzer (MC valuation + persistence)
-    └── options/           # Options trading (stub)
+    └── options/           # Options trading (chain viewer, trade log, analytics)
 ```
 
 NOTE: A persistent chat assistant is the design intent (see Project Overview),
@@ -217,6 +217,15 @@ Three trading profiles with different research emphasis:
     coupons, European/American barriers) in services/structured_products/
   - Fee breakdown, risk scenarios, outcome histogram, alternatives table
   - Persisted analyses (structured_notes table) + LLM narrative
+- Options module (trade logging + analysis):
+  - Chain viewer (dense ATM window, profile-aware default expiration,
+    row click prefills the trade form)
+  - Single-leg strategy preview: payoff diagram, break-even, max P/L,
+    est. probability of profit, Black-Scholes Greeks
+    (services/options_analytics.py, pure math)
+  - Trade log with close/expire flow (manual exit price; realized P/L
+    stored at close), performance dashboard (win rate, expectancy,
+    P/L by strategy/underlying), LLM pattern analysis
 - Home dashboard with the LLM Daily Brief
 
 **Implemented but inactive (disabled by default):**
@@ -224,7 +233,8 @@ Three trading profiles with different research emphasis:
 
 **Planned / not yet wired up:**
 - Persistent chat assistant with tool calling (not started)
-- Options module
+- Options: multi-leg strategy builder, screener, paper trading,
+  mark-to-market of open positions
 
 **Next Steps:**
 1. **Assistant:** Wire up the persistent chat interface with tool calling.

@@ -4,6 +4,7 @@ import logging
 
 import reflex as rx
 
+from . import options_logic
 from .research_cache import LRUCache
 from .state import ResearchState
 
@@ -109,45 +110,10 @@ class OptionsState(ResearchState):
     def _get_default_expiration_for_profile(
         self, expirations: list[str], profile_timeframe: str
     ) -> str:
-        """Select the best default expiration based on user profile.
-
-        - Conservative (2_weeks): First expiration in 7-21 day range
-        - Aggressive (1_2_months): First expiration in 30-60 day range
-        - Standard (varies): First available expiration
-
-        Falls back to first expiration if no match in preferred range.
-        """
-        from datetime import datetime
-
-        if not expirations:
-            return ""
-
-        today = datetime.now().date()
-
-        # Define target ranges based on profile
-        if profile_timeframe == "1_week":
-            min_days, max_days = 3, 10
-        elif profile_timeframe == "2_weeks":
-            min_days, max_days = 7, 21
-        elif profile_timeframe == "1_2_months":
-            min_days, max_days = 30, 60
-        else:
-            # Standard or default: just use first expiration
-            return expirations[0]
-
-        # Find first expiration in target range
-        for exp_str in expirations:
-            try:
-                exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
-                days_out = (exp_date - today).days
-
-                if min_days <= days_out <= max_days:
-                    return exp_str
-            except ValueError:
-                continue
-
-        # No match in preferred range - fallback to first expiration
-        return expirations[0]
+        """Select the default expiration (delegates to options_logic)."""
+        return options_logic.select_default_expiration(
+            expirations, profile_timeframe
+        )
 
     async def _load_options_for_expiration(self):
         """Load and filter options chain for selected expiration.
@@ -261,78 +227,10 @@ class OptionsState(ResearchState):
         range_low: float,
         target_price: float,
     ) -> list[dict]:
-        """Filter to 'interesting' strikes with annotations.
-
-        Returns list of dicts: {strike, annotation, is_atm}
-        """
-        if not strikes or not current_price:
-            return []
-
-        interesting = []
-        seen_strikes = set()
-
-        # Define bounds: +/- 10% of current price
-        lower_bound = current_price * 0.90
-        upper_bound = current_price * 1.10
-
-        # Find ATM strike (closest to current price)
-        atm_strike = min(strikes, key=lambda x: abs(x - current_price))
-
-        # Find round number interval
-        round_interval = 5 if current_price < 100 else 10
-
-        for strike in sorted(strikes):
-            if strike < lower_bound or strike > upper_bound:
-                continue
-
-            if strike in seen_strikes:
-                continue
-
-            annotation = ""
-            is_atm = False
-
-            # Check if ATM
-            if strike == atm_strike:
-                annotation = "ATM"
-                is_atm = True
-            # Check if near range high (within 2%)
-            elif range_high and abs(strike - range_high) / range_high < 0.02:
-                annotation = "Range High"
-            # Check if near range low (within 2%)
-            elif range_low and abs(strike - range_low) / range_low < 0.02:
-                annotation = "Range Low"
-            # Check if near analyst target (within 2%)
-            elif target_price and abs(strike - target_price) / target_price < 0.02:
-                annotation = "Target"
-            # Check if round number
-            elif strike % round_interval == 0:
-                annotation = "Round"
-            else:
-                # Skip non-interesting strikes
-                continue
-
-            seen_strikes.add(strike)
-            interesting.append(
-                {
-                    "strike": strike,
-                    "annotation": annotation,
-                    "is_atm": is_atm,
-                }
-            )
-
-        # Always include ATM even if already captured
-        if atm_strike not in seen_strikes:
-            interesting.append(
-                {
-                    "strike": atm_strike,
-                    "annotation": "ATM",
-                    "is_atm": True,
-                }
-            )
-
-        # Sort by strike and limit to ~8 strikes
-        interesting.sort(key=lambda x: x["strike"])
-        return interesting[:8]
+        """Filter to annotated strikes (delegates to options_logic)."""
+        return options_logic.interesting_strikes(
+            strikes, current_price, range_high, range_low, target_price
+        )
 
     def _format_options_rows(
         self,
@@ -341,39 +239,10 @@ class OptionsState(ResearchState):
         strike_info: dict,
         option_type: str,
     ) -> list[dict]:
-        """Format options DataFrame rows for display."""
-        rows = []
-
-        if df is None or df.empty:
-            return rows
-
-        filtered = df[df["strike"].isin(interesting_strikes)]
-
-        for _, row in filtered.iterrows():
-            strike = row["strike"]
-            info = strike_info.get(strike, {})
-            iv_raw = float(row.get("impliedVolatility", 0) or 0)
-
-            rows.append(
-                {
-                    "strike": float(strike),
-                    "bid": float(row.get("bid", 0) or 0),
-                    "ask": float(row.get("ask", 0) or 0),
-                    "oi": int(row.get("openInterest", 0) or 0),
-                    "iv": iv_raw,
-                    "iv_pct": f"{iv_raw * 100:.0f}%",  # Pre-formatted for display
-                    "annotation": info.get("annotation", ""),
-                    "is_atm": info.get("is_atm", False),
-                }
-            )
-
-        # Sort calls descending (high strikes first), puts ascending
-        if option_type == "call":
-            rows.sort(key=lambda x: x["strike"], reverse=True)
-        else:
-            rows.sort(key=lambda x: x["strike"])
-
-        return rows
+        """Format chain rows for display (delegates to options_logic)."""
+        return options_logic.format_chain_rows(
+            df, interesting_strikes, strike_info, option_type
+        )
 
     def _build_structured_options_summary(self):
         """Build structured options summary for LLM context."""
