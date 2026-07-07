@@ -1,81 +1,64 @@
-"""Options page - Options chain viewer and trade tracking.
+"""Options page - chain viewer, strategy preview, trade log, performance.
 
-Support weekly options plays with research and tracking.
+Layout per the design doc: chain viewer on top, trade form + strategy
+preview in the middle, tabbed trade log (open/closed/performance) below.
 """
 
 import reflex as rx
 
 from ...components.layout import main_layout
 from ...state.user_context import UserContextState
-from ..portfolio.state import PortfolioState
+from .components import trade_form, trades_section
+from .state import OptionsTradingState
+
+
+def _performance_placeholder() -> rx.Component:
+    return rx.center(
+        rx.text(
+            "Performance metrics appear once you close trades.",
+            size="2",
+            color="var(--pfs-text-muted)",
+        ),
+        padding="32px",
+        width="100%",
+    )
 
 
 def options_content() -> rx.Component:
     """Options page content."""
     return rx.vstack(
-        rx.heading("Options Trading", size="6"),
+        rx.heading("Options Trading", size="7"),
         rx.text(
-            "Options chain viewer, payoff diagrams, and trade logging.",
+            "Log trades, preview strategies, and track what actually works.",
             size="2",
-            color_scheme="gray",
+            color="var(--pfs-text-muted)",
         ),
-        rx.divider(),
-        rx.callout(
-            rx.vstack(
-                rx.text("Coming Soon", weight="bold"),
-                rx.text(
-                    "Track weekly options plays, analyze strategies, "
-                    "and optimize your returns!",
-                    size="2",
-                ),
-                spacing="2",
+        rx.flex(
+            rx.box(
+                trade_form(),
+                width=rx.breakpoints(initial="100%", md="380px"),
+                flex_shrink="0",
             ),
-            icon="bar-chart-2",
-            color_scheme="green",
-        ),
-        rx.card(
-            rx.vstack(
-                rx.heading("Planned Features", size="4"),
-                rx.unordered_list(
-                    rx.list_item("Options chain viewer with IV and Greeks"),
-                    rx.list_item("Payoff diagram generator for any strategy"),
-                    rx.list_item("Trade logging and P&L tracking"),
-                    rx.list_item("Win rate and pattern analysis"),
-                    rx.list_item("Strategy suggestions based on research"),
-                ),
-                spacing="3",
-                align="start",
+            rx.box(
+                trades_section(_performance_placeholder()),
+                flex="1",
+                min_width="0",
             ),
+            direction=rx.breakpoints(initial="column", md="row"),
+            gap="16px",
             width="100%",
-        ),
-        rx.card(
-            rx.vstack(
-                rx.heading("Supported Strategies", size="4"),
-                rx.grid(
-                    rx.badge("Long Call", color_scheme="green"),
-                    rx.badge("Long Put", color_scheme="red"),
-                    rx.badge("Covered Call", color_scheme="blue"),
-                    rx.badge("Cash-Secured Put", color_scheme="purple"),
-                    rx.badge("Vertical Spreads", color_scheme="orange"),
-                    rx.badge("Iron Condor", color_scheme="gray"),
-                    columns=rx.breakpoints({"0px": "2", "768px": "3"}),
-                    spacing="2",
-                ),
-                spacing="3",
-                align="start",
-            ),
-            width="100%",
+            align="start",
         ),
         spacing="4",
         width="100%",
-        max_width="800px",
+        max_width="1200px",
     )
 
 
 @rx.page(
     route="/options",
     title="Options | Phinan Finance Suite",
-    on_load=[UserContextState.load_context, PortfolioState.load_positions],
+    on_load=[UserContextState.load_context, OptionsTradingState.load_page],
 )
 def options_page() -> rx.Component:
     """Options page."""
