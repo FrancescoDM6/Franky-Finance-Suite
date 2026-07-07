@@ -10,12 +10,22 @@ from ...components.layout import main_layout
 from ...state.user_context import UserContextState
 from .components import (
     chain_card,
+    pattern_card,
     performance_card,
     preview_card,
     trade_form,
     trades_section,
 )
 from .state import OptionsTradingState
+
+
+def _performance_tab() -> rx.Component:
+    return rx.vstack(
+        performance_card(),
+        pattern_card(),
+        spacing="4",
+        width="100%",
+    )
 
 
 def options_content() -> rx.Component:
@@ -44,7 +54,7 @@ def options_content() -> rx.Component:
             width="100%",
             align="start",
         ),
-        trades_section(performance_card()),
+        trades_section(_performance_tab()),
         spacing="4",
         width="100%",
         max_width="1200px",

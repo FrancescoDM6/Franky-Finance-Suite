@@ -228,6 +228,9 @@ metrics the UI emphasizes.
 - Notes module (term-sheet PDF extraction with editable correction form,
   Monte Carlo valuation of autocallables/barrier notes, fee decomposition,
   risk scenarios, alternatives comparison, saved analyses, AI narrative)
+- Options module (chain viewer with clickable strike prefill, single-leg
+  strategy preview with payoff/Greeks/PoP, trade logging with close and
+  expire flows, performance analytics, AI pattern analysis)
 - Home dashboard with the LLM Daily Brief
 
 **Implemented but inactive (disabled by default)**
@@ -237,7 +240,8 @@ metrics the UI emphasizes.
 
 **Planned / stubs**
 - Persistent chat assistant (not started)
-- Options module (beyond the research options card)
+- Options: multi-leg builder, screener, paper trading, open-position
+  mark-to-market
 
 ## Deployment
 
